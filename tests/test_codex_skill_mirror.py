@@ -300,13 +300,15 @@ def test_non_degrading_skill_rules_are_documented() -> None:
         assert needle in text
 
 
-def test_codex_gemini_search_uses_auto_gemini_3_model() -> None:
-    text = read(CODEX_SKILLS / "gemini-search" / "SKILL.md")
-
-    assert "DEFAULT_MODEL = auto-gemini-3" in text
-    assert "model: 'auto-gemini-3'" in text
-    assert "DEFAULT_MODEL = gemini-3-pro-preview" not in text
-    assert "model: 'DEFAULT_MODEL'" not in text
+def test_literature_gemini_routes_pin_argon_in_both_skill_trees() -> None:
+    for skill_root in (MAIN_SKILLS, CODEX_SKILLS):
+        for skill_name in ("gemini-search", "research-lit"):
+            text = read(skill_root / skill_name / "SKILL.md")
+            assert "model: 'gemini-4-argon'" in text
+            assert "gemini -m gemini-4-argon -p" in text
+            assert "auto-gemini-3" not in text
+        search_text = read(skill_root / "gemini-search" / "SKILL.md")
+        assert "DEFAULT_MODEL = gemini-4-argon" in search_text
 
 
 def test_codex_skill_helper_commands_use_installed_aris_repo() -> None:

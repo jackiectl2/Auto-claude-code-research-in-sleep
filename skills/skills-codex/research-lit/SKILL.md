@@ -343,11 +343,11 @@ For EACH paper found, provide ALL of the following:
 - Summary: [one-sentence core contribution]
 
 Find at least 15 papers.',
-  model: 'auto-gemini-3'
+  model: 'gemini-4-argon'
 })
 ```
 
-**Priority 2 — Gemini CLI fallback** (if MCP unavailable): Use `gemini -p "...same prompt..." 2>/dev/null` via Bash (timeout: 120s).
+**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): Use `gemini -m gemini-4-argon -p "...same prompt..." 2>/dev/null` via Bash (timeout: 120s). Do not label output from another model as Argon output.
 
 If both MCP and CLI are unavailable, skip this source gracefully and continue with the remaining requested sources.
 

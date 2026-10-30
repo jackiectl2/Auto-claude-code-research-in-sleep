@@ -27,16 +27,14 @@ Use Gemini when you want AI-driven discovery that goes beyond keyword matching �
 
 - **MAX_RESULTS = 15** — Target number of papers Gemini should find.
 - **MIN_YEAR = 2022** — Default minimum publication year. Override with `— year: 2020-`.
-- **DEFAULT_MODEL = auto-gemini-3** — Auto-routes within the Gemini 3 family (Pro / Flash) by server-side capacity. Required by `mcp__gemini-cli__ask-gemini` and `gemini-cli` v0.40+; explicit `gemini-3-pro-preview` is **silently downgraded to `gemini-2.5-pro`** on OAuth-personal / Google One AI Pro accounts when capacity is exhausted. Override with `— model: gemini-3-flash-preview` (Gemini 3 Flash explicit, faster, higher quota), or `— model: gemini-2.5-pro` / `gemini-2.5-flash` (legacy, only for users on older `gemini-cli` < v0.40). The MCP tool accepts all of these verbatim.
+- **DEFAULT_MODEL = gemini-4-argon** — Pin Gemini 4 Argon for literature discovery. A caller may explicitly override this with `— model: <model-id>`.
 
 > Overrides (append to arguments):
 > - `/gemini-search "topic" — max: 20` — request up to 20 papers
 > - `/gemini-search "topic" — year: 2020-` — papers from 2020 onward
 > - `/gemini-search "topic" — code-only` — only papers with open-source code
 > - `/gemini-search "topic" — venues: NeurIPS,ICML,ICLR` — focus on specific venues
-> - `/gemini-search "topic" — model: gemini-3-flash-preview` — Gemini 3 Flash (faster, higher quota, less capable than Pro)
-> - `/gemini-search "topic" — model: auto-gemini-3` — auto-routes within the Gemini 3 family by load
-> - `/gemini-search "topic" — model: gemini-2.5-pro` — legacy (only if your `gemini-cli` < v0.40)
+> - `/gemini-search "topic" — model: gemini-3-flash-preview` — explicitly use a different model
 
 ## Environment & Setup
 
@@ -158,16 +156,16 @@ Find at least MAX_RESULTS papers with good coverage across:
 - closely related variants of the topic
 
 Format as a numbered list with all fields for each paper.',
-  model: 'auto-gemini-3'
+  model: 'gemini-4-argon'
 })
 ```
 
 **Priority 2 — Gemini CLI fallback** (if MCP unavailable):
 
-If `mcp__gemini-cli__ask-gemini` fails or is not configured, fall back to CLI:
+If `mcp__gemini-cli__ask-gemini` fails, is not configured, or does not honor the selected model, fall back to CLI. In both commands below, substitute an explicitly requested `— model:` value for the default:
 
 ```bash
-gemini -p 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
+gemini -m gemini-4-argon -p 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
 ...same prompt as above...' 2>/dev/null
 ```
 
@@ -223,7 +221,7 @@ After presenting results, suggest:
 
 ## Key Rules
 
-- **MCP first, CLI second.** Always try `mcp__gemini-cli__ask-gemini` before falling back to `gemini -p`.
+- **MCP first, CLI second.** Try `mcp__gemini-cli__ask-gemini` with the selected model before the CLI fallback. If the MCP backend ignores the model parameter, use the CLI with `-m <selected-model>` instead; do not treat another model's output as the selected model's output.
 - **Gemini is a discovery source, not a database.** Its results may include papers it "knows about" from training data. Always cross-verify critical details (exact titles, venues, years) via `/semantic-scholar` or `/arxiv` when precision matters.
 - **Do not use Gemini for citation counts.** It may hallucinate citation numbers. Use Semantic Scholar for authoritative citation data.
 - **Pipe stderr to `/dev/null` in CLI mode** — Gemini CLI emits hook warnings on stderr.
