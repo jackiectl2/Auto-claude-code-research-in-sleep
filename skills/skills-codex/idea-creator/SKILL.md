@@ -40,7 +40,38 @@ not pass a selected MCP reviewer model into a native generation call.
 
 ## Workflow
 
+### Project switch for analytical-lens candidate generation
+
+Before the fan-out below, read `.aris/idea-creator.json` when present. Its
+`lens_generator` must be `native` or `gemini-4-argon`; a missing file means
+`native`. Argon also requires `argon_paid_authorized: true` in that file.
+Reject an unknown value instead of silently changing providers.
+The switch affects only analytical-lens candidate generation. The Codex
+executor still owns literature context, merging, pilots, artifacts and
+orchestration; Phase 2 external brainstorming and all reviewer/verdict routes
+remain unchanged.
+
+- `native`: follow the existing bounded Codex shard / sequential workflow.
+- `gemini-4-argon`: for each frozen lens, write one project-local JSON task with
+  `shard_id`, `assigned_unit_ids`, `lens_instructions`, and `research_context`.
+  Resolve `tools/idea_lens_argon.py` from the installed ARIS repo and call
+  `python3 <resolved-helper> --project-root . --input <task.json>`. The helper calls the official
+  Gemini Interactions API with the exact model ID and returns the existing
+  `shard_id` / `assigned_unit_ids` / `covered_unit_ids` / `status` /
+  `candidates[]` / `errors[]` envelope. Keep at most eight frozen shards and
+  four concurrent calls, validate every envelope, and preserve the coverage
+  receipt and mechanical dedup rules below. A failed Argon shard may be
+  retried once with Argon; record failure if it still fails. Never silently
+  substitute Codex, another Gemini model, or reviewer output. Require project
+  authorization for this paid API use before the first call. Credentials come
+  only from `GEMINI_API_KEY` or `GOOGLE_API_KEY` in the environment and must
+  never enter task files, logs, or reports.
+
 ### Fan-out contract
+
+When the project switch selects `gemini-4-argon`, dispatch the same frozen lens
+set through the Argon helper above instead of native Codex shards. Keep the
+coverage receipt and cross-model jury boundaries unchanged.
 
 Idea generation is breadth-bound. Freeze the complete analytic-lens list before
 dispatch and partition it into `max_shards: 8` or fewer. The executor may use

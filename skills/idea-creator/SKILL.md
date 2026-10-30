@@ -40,6 +40,33 @@ not pass a selected MCP reviewer model into a native generation call.
 
 > 💡 Override via argument, e.g., `/idea-creator "topic" — pilot budget: 4h per idea, 20h total`.
 
+## Project switch for analytical-lens candidate generation
+
+Before Phase 1.5, read `.aris/idea-creator.json` when present. Its `lens_generator`
+must be `native` or `gemini-4-argon`; a missing file means `native`. Argon also
+requires `argon_paid_authorized: true` in that same file. Reject an
+unknown value instead of silently changing providers. This switch affects only
+Phase 1.5 candidate generation. The Claude Code executor still owns literature
+context, merging, pilots, artifacts and orchestration; Phase 2 external
+brainstorming and every reviewer/verdict route remain unchanged.
+
+- `native`: follow the existing bounded `aris-fanout-leaf` / sequential Claude
+  lens workflow below. No Gemini idea-generation call is made.
+- `gemini-4-argon`: for each frozen lens, write one project-local JSON task with
+  `shard_id`, `assigned_unit_ids`, `lens_instructions`, and `research_context`.
+  Resolve `tools/idea_lens_argon.py` from the installed ARIS repo and call
+  `python3 <resolved-helper> --project-root . --input <task.json>`. The helper calls the official
+  Gemini Interactions API with the exact model ID and returns the existing
+  `shard_id` / `assigned_unit_ids` / `covered_unit_ids` / `status` /
+  `candidates[]` / `errors[]` envelope. Keep the same frozen lenses, maximum
+  eight shards and four concurrent calls. Validate every envelope and preserve
+  the coverage receipt and mechanical dedup rules below. A failed Argon shard
+  may be retried once with Argon; record failure if it still fails. Never
+  silently substitute Claude, another Gemini model, or reviewer output.
+  Require project authorization for this paid API use before the first call;
+  credentials come only from `GEMINI_API_KEY` or `GOOGLE_API_KEY` in the
+  environment and must never enter task files, logs, or reports.
+
 ## Reviewer Calling Convention
 
 When calling the reviewer for idea evaluation, branch on REVIEWER_BACKEND:
@@ -199,6 +226,10 @@ Map the research area to understand what exists and where the gaps are.
    - Diagnostic questions that nobody has asked
 
 ### Phase 1.5: Parallel lens fan-out (Tier-aware) — breadth, not verdict
+
+If the project switch selects `gemini-4-argon`, use the Argon helper branch
+above for these lenses instead of the native Claude leaf dispatch below. All
+coverage, read-only generation, merge, and jury boundaries still apply.
 
 Idea generation benefits from **breadth**: more independent analytic angles
 surface more candidate ideas. This skill fans out *candidate generation*
