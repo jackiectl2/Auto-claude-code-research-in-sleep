@@ -69,15 +69,17 @@ def build_payload(task: dict[str, object]) -> dict[str, object]:
 
 
 def extract_output(response: dict[str, object]) -> dict[str, object]:
+    if response.get("status") != "completed":
+        raise ValueError("Gemini interaction did not complete")
     for step in reversed(response.get("steps", [])):
-        if not isinstance(step, dict) or step.get("type") != "model_output" or step.get("status") != "done":
+        if not isinstance(step, dict) or step.get("type") != "model_output":
             continue
         for part in step.get("content", []):
             if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str):
                 result = json.loads(part["text"])
                 if isinstance(result, dict):
                     return result
-    raise ValueError("Gemini returned no completed JSON model output")
+    raise ValueError("Gemini returned no JSON model output")
 
 
 def validate_candidates(result: dict[str, object]) -> list[dict[str, str]]:

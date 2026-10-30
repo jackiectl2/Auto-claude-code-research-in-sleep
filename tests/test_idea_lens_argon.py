@@ -34,7 +34,8 @@ class FakeResponse:
 
     def read(self, *_args):
         return json.dumps({
-            "steps": [{"type": "model_output", "status": "done", "content": [
+            "status": "completed",
+            "steps": [{"type": "model_output", "content": [
                 {"type": "text", "text": json.dumps({"candidates": [CANDIDATE]})}
             ]}]
         }).encode()
@@ -64,6 +65,20 @@ def test_argon_lens_rejects_incomplete_output() -> None:
         pass
     else:
         raise AssertionError("Incomplete candidates must not enter the jury")
+
+
+def test_argon_lens_rejects_unfinished_interaction() -> None:
+    response = {"status": "in_progress", "steps": [
+        {"type": "model_output", "content": [
+            {"type": "text", "text": json.dumps({"candidates": [CANDIDATE]})}
+        ]}
+    ]}
+    try:
+        idea_lens_argon.extract_output(response)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("An unfinished interaction must not enter the jury")
 
 
 def test_argon_lens_requires_project_switch_and_paid_authorization() -> None:
