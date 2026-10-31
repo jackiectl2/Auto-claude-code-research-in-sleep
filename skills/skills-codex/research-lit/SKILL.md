@@ -319,6 +319,13 @@ If `exa_search.py` or the `exa-py` SDK is unavailable, skip this source graceful
 **Gemini search** (only when `gemini` is in sources):
 
 When the user explicitly requests `— sources: gemini` (or includes `gemini` in a combined source list), use Gemini for AI-powered broad literature discovery.
+Before calling Gemini, read the project switch through `tools/resolve_gemini_search_model.py` in the ARIS repo recorded as `repo_root` in `.aris/installed-skills-codex.txt`. Run it from the project directory or a child directory and use its output as `GEMINI_LITERATURE_MODEL` in both MCP and CLI. Do not use the machine-wide ARIS pointer for a project. Stop this Gemini source if model resolution fails; do not silently choose another model. Off means upstream `auto-gemini-3`; on means `gemini-4-argon` with project authorization.
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+ARIS_REPO=$(awk -F '\t' '$1=="repo_root" {print $2; exit}' "$PROJECT_ROOT/.aris/installed-skills-codex.txt")
+GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py")
+```
 
 **Priority 1 — Gemini MCP** (preferred): Call `mcp__gemini-cli__ask-gemini` with the search prompt:
 
@@ -343,11 +350,11 @@ For EACH paper found, provide ALL of the following:
 - Summary: [one-sentence core contribution]
 
 Find at least 15 papers.',
-  model: 'gemini-4-argon'
+  model: '<GEMINI_LITERATURE_MODEL>'
 })
 ```
 
-**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): Use `gemini -m gemini-4-argon -p "...same prompt..." 2>/dev/null` via Bash (timeout: 120s). Do not label output from another model as Argon output.
+**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): Use `gemini -m "$GEMINI_LITERATURE_MODEL" -p "...same prompt..." 2>/dev/null` via Bash (timeout: 120s). Do not label output from another model as Argon output.
 
 If both MCP and CLI are unavailable, skip this source gracefully and continue with the remaining requested sources.
 
