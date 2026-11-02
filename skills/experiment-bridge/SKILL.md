@@ -26,14 +26,14 @@ This skill bridges Workflow 1 (idea discovery + method refinement) and Workflow 
 
 ```
 Workflow 1 output:                    This skill:                                    Workflow 2 input:
-refine-logs/EXPERIMENT_PLAN.md   →   implement → GPT-6-Astra review → deploy → collect → initial results ready
+refine-logs/EXPERIMENT_PLAN.md   →   implement → GPT-6-Sol review → deploy → collect → initial results ready
 refine-logs/EXPERIMENT_TRACKER.md     code        (cross-model)    /run-experiment     for /auto-review-loop
 refine-logs/FINAL_PROPOSAL.md
 ```
 
 ## Constants
 
-- **CODE_REVIEW = true** — GPT-6-Astra xhigh reviews experiment code before deployment. Catches logic bugs before wasting GPU hours. Set `false` to skip.
+- **CODE_REVIEW = true** — GPT-6-Sol high reviews experiment code before deployment. Catches logic bugs before wasting GPU hours. Set `false` to skip.
 - **AUTO_DEPLOY = true** — Automatically deploy experiments after implementation + review. Set `false` to manually inspect code before deploying.
 - **SANITY_FIRST = true** — Run the sanity-stage experiment first (smallest, fastest) before launching the rest. Catches setup bugs early.
 - **MAX_PARALLEL_RUNS = 4** — Maximum number of experiments to deploy in parallel (limited by available GPUs).
@@ -124,14 +124,14 @@ For each milestone (in order), write the experiment scripts:
 
 **Skip this step if `CODE_REVIEW` is `false`.**
 
-Before deploying, send the experiment code to GPT-6-Astra xhigh for review:
+Before deploying, send the experiment code to GPT-6-Sol high for review:
 
 > Resolve this reviewer slot first; the following is the `backend=codex` example.
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Review the following experiment implementation for correctness.
 
@@ -211,9 +211,9 @@ attempts** on the same failure, then up to **2 clean reimplements** (4 total):
    - CUDA error → check GPU availability, reduce model size
    - NaN/divergence → reduce learning rate, check data preprocessing
 3. **Fix and re-run** — apply the fix, re-run sanity
-4. **Attempt 2+ still failing? → Call in Codex rescue** (if Codex plugin installed):
-   Before the next retry, invoke `/codex:rescue` to get a second opinion on the root cause. Codex independently reads the code and error logs — it may spot issues Claude missed (wrong tensor shapes, subtle import shadowing, config mismatches, etc.). Apply its suggested fix, then re-run.
-   - If `/codex:rescue` is not available (plugin not installed), continue with Claude's own diagnosis
+4. **Attempt 2+ still failing? → Call in Codex rescue** (if Codex CLI is available):
+   Resolve the project's research reviewer pair (`gpt-6-sol` + `high` by default), then invoke `codex exec` with explicit `-m <resolved-model> -c 'model_reasoning_effort="<resolved-effort>"' -s read-only` and a prompt to inspect the failing code and error logs. Do not use `/codex:rescue` here because that plugin does not pin this project's model and effort. Apply a justified suggested fix, then re-run.
+   - If Codex CLI is unavailable, continue with Claude's own diagnosis
 5. **Both patch attempts failed on the same failure? → Discard and reimplement cleanly**
    (up to 2 reimplements). Rewriting the failing script from `EXPERIMENT_PLAN.md` / the
    research contract is a PEER move to another patch, not a last resort — a third patch

@@ -22,7 +22,7 @@ Check whether a proposed method/idea has already been done in the literature: **
 
 ## Constants
 
-- REVIEWER_MODEL = `gpt-6-astra` — Model used via Codex MCP. For `backend=codex`, use an OpenAI model (e.g., `gpt-6-astra`, `gpt-6.1-sol`)
+- REVIEWER_MODEL = `gpt-6-sol` — Model used via Codex MCP. For `backend=codex`, use an OpenAI model (e.g., `gpt-6-sol`, `gpt-6.1-sol`)
 
 ## Instructions
 
@@ -52,7 +52,7 @@ For EACH core claim, search using ALL available sources:
 3. **Read abstracts**: For each potentially overlapping paper, WebFetch its abstract and related work section
 
 ### Phase C: Cross-Model Verification
-Call REVIEWER_MODEL via Codex MCP (`mcp__codex__codex`) with xhigh reasoning.
+Call REVIEWER_MODEL via Codex MCP (`mcp__codex__codex`) with high reasoning.
 When the method description plus the Phase-B paper list is more than a short
 note, avoid pasting it inline into the MCP prompt. Write a dossier file such as
 `NOVELTY_DOSSIER.md` (or a project-local equivalent) containing the method
@@ -62,8 +62,8 @@ send only the file path:
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Read the novelty dossier at <absolute path to NOVELTY_DOSSIER.md> and
     follow all instructions in it.

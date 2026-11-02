@@ -31,8 +31,8 @@ CC reads available project files to build the full picture:
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     You are a rigorous ML reviewer planning ablation studies.
     Given this method and results, design ablations that:

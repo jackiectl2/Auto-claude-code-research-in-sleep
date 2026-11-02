@@ -73,15 +73,35 @@ def test_legacy_routes_retain_identity_and_options(tmp_path, backend):
     assert route["continuation_tool"] is None
 
 
-@pytest.mark.parametrize("effort", ["low", "medium", "high", "unknown"])
+@pytest.mark.parametrize("effort", ["low", "medium", "unknown"])
 def test_codex_rejects_lower_or_unknown_effort(tmp_path, effort):
     with pytest.raises(ValueError, match="Codex reviewer effort"):
         resolve_route(tmp_path, "codex", effort=effort)
 
 
-@pytest.mark.parametrize("backend,effort", [("codex", "xhigh"), ("codex", "max"), ("codex", "ultra"), ("antigravity", "max"), ("grok", "xhigh")])
+@pytest.mark.parametrize("backend,effort", [("codex", "high"), ("codex", "xhigh"), ("codex", "max"), ("codex", "ultra"), ("antigravity", "max"), ("grok", "xhigh")])
 def test_supported_efforts(tmp_path, backend, effort):
     assert resolve_route(tmp_path, "codex", reviewer=backend, effort=effort)["effort"] == effort
+
+
+def test_project_phase_profiles_do_not_change_other_providers(tmp_path):
+    configure(
+        tmp_path,
+        backend="codex", model="gpt-6-sol", effort="high",
+        profiles={
+            "idea_creator": {"model": "gpt-5.6-sol", "effort": "high"},
+            "paper": {"model": "gpt-5.6-sol", "effort": "high"},
+        },
+    )
+    assert (resolve_route(tmp_path, "claude-code", "deep")["model"],
+            resolve_route(tmp_path, "claude-code", "deep")["effort"]) == ("gpt-6-sol", "high")
+    for profile in ("idea_creator", "paper"):
+        route = resolve_route(tmp_path, "claude-code", "deep", profile=profile)
+        assert (route["model"], route["effort"]) == ("gpt-5.6-sol", "high")
+    override = resolve_route(tmp_path, "claude-code", "deep", profile="paper", model="gpt-6-astra", effort="xhigh")
+    assert (override["model"], override["effort"]) == ("gpt-6-astra", "xhigh")
+    other = resolve_route(tmp_path, "claude-code", "deep", profile="paper", reviewer="grok")
+    assert (other["model"], other["effort"]) == ("grok-4.7", "xhigh")
 
 
 def test_claude_model_uses_config_without_fabricated_effort(tmp_path):

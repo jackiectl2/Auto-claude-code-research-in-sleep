@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, WebSearch, mcp__codex-ima
 
 # Paper Illustration Image2
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this

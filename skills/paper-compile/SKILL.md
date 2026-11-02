@@ -120,7 +120,7 @@ For each error:
 3. Apply the fix
 4. Recompile
 
-**Stuck after 2 attempts?** If Codex plugin is installed, invoke `/codex:rescue` — Codex can independently read the LaTeX source and `compile.log` to spot issues Claude missed (e.g., conflicting packages, encoding problems, subtle macro errors). If not installed, continue with Claude's own diagnosis.
+**Stuck after 2 attempts?** If Codex CLI is available, resolve `--profile paper` (`gpt-5.6-sol` + `high` by default), then invoke `codex exec` with explicit `-m <resolved-model> -c 'model_reasoning_effort="<resolved-effort>"' -s read-only` to inspect LaTeX sources and `compile.log`. Do not use `/codex:rescue` here because that plugin does not pin this project's model and effort. If Codex CLI is unavailable, continue with Claude's own diagnosis.
 
 ### Step 5: Post-Compilation Checks
 

@@ -45,7 +45,7 @@ This follows `shared-references/reviewer-independence.md` and `shared-references
 
 ## Constants
 
-- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (ultra). Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
+- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (high). Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
 
 ## Reviewer Calling Convention
 
@@ -98,8 +98,8 @@ Scan project directory for:
 Based on the selected reviewer backend (see Reviewer Calling Convention), pass ONLY file paths and the audit checklist to the reviewer. The reviewer reads everything directly.
 
 For `codex`, call `mcp__codex__codex` with:
-- `model: gpt-6-astra`
-- `config: {"model_reasoning_effort": "ultra"}`
+- `model: gpt-6-sol`
+- `config: {"model_reasoning_effort": "high"}`
 - `sandbox: read-only`
 - `cwd: [project directory]`
 - `prompt: [the exact full prompt below]`
@@ -192,7 +192,7 @@ Parse the reviewer's response and write `EXPERIMENT_AUDIT.md`:
 # Experiment Audit Report
 
 **Date**: [today]
-**Auditor**: External reviewer backend, ultra reasoning (cross-model, read-only)
+**Auditor**: External reviewer backend, high reasoning (cross-model, read-only)
 **Project**: [project name]
 
 ## Overall Verdict: [PASS | WARN | FAIL]
@@ -232,7 +232,7 @@ Also write `EXPERIMENT_AUDIT.json` for machine consumption:
 ```json
 {
   "date": "2026-04-10",
-  "auditor": "external-reviewer-ultra",
+  "auditor": "external-reviewer-high",
   "overall_verdict": "warn",
   "integrity_status": "warn",
   "checks": {

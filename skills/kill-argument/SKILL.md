@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, mcp__codex__codex, mcp__a
 
 # Kill Argument Exercise: Adversarial Attack-Defense Review
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -62,7 +63,7 @@ This skill is most valuable for **theory papers** with ≥5 theorem-class enviro
 
 ## Constants
 
-- **REVIEWER_MODEL** = `gpt-6-astra` (default; `gpt-6.1-sol` is the first model capability fallback per `shared-references/reviewer-routing.md`, `gpt-5.4` only as an explicit legacy override).  Reviewer reasoning effort = `ultra` for the attack / defense / adjudication threads (deep-audit tier; capability fallback per `shared-references/reviewer-routing.md`, never below `xhigh`).  Beast-mode axis probes stay at `xhigh`.
+- **REVIEWER_MODEL** = `gpt-5.6-sol` + `high` from the paper profile by default. Resolve and pin that pair for attack, defense, adjudication, and beast-mode axis probes. A project-selected model is not silently replaced on ordinary errors; apply the explicit capability policy in `shared-references/reviewer-routing.md`.
 - **CONTEXT_POLICY** = `fresh` (REVIEWER_BIAS_GUARD).  Each thread is a fresh `mcp__codex__codex` call.  **Never** use `mcp__codex__codex-reply`.  No prior review summary, fix list, or executor explanation enters either prompt.
 - **ATTACK_LENGTH** = approximately 200 words (do not exceed 250).  Single coherent argument, not a list.
 - **DEFENSE_DECOMPOSITION** = 3-7 atomic rejection points extracted from the attack memo.  Each gets its own classification.
@@ -101,8 +102,8 @@ Invoke `mcp__codex__codex` (NOT `codex-reply`) with the following prompt structu
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "ultra"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   sandbox: read-only
   cwd: <paper directory>
   prompt: |
@@ -172,9 +173,9 @@ without diluting the commitment:
    validity / assumption-vs-claim / missing obligation / limit-order /
    claim-vs-evidence / scope-overclaim) as **separate fresh-codex probes**,
    each asked for the strongest ~120-word thrust *on that axis alone*. These
-   are evidence-gathering, not the verdict. Probes run at `xhigh` (not
-   `ultra`) — six serial delegating calls would multiply cost for evidence
-   that the ultra-tier commit re-judges anyway.
+   are evidence-gathering, not the verdict. Probes use the resolved paper
+   reviewer pair (`gpt-5.6-sol` + `high` by default), as do the final verdict
+   threads. Keep each probe in a fresh context.
    - **These are NOT Claude subagents, and there is deliberately NO `Agent`
      grant.** Each probe is a fresh `mcp__codex__codex` call — the adversary
      must be cross-model (non-Claude). Codex MCP is **serial** (concurrent
@@ -203,8 +204,8 @@ Invoke a second `mcp__codex__codex` call (still NOT `codex-reply` — Thread 2 i
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "ultra"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   sandbox: read-only
   cwd: <paper directory>
   prompt: |
@@ -287,7 +288,7 @@ Compose the human-readable report `<paper-dir>/KILL_ARGUMENT.md`:
 # Kill Argument Report — <paper title>
 
 **Date**: <YYYY-MM-DD>
-**Reviewer model**: <resolved pair that actually ran — target gpt-6-astra ultra>, fresh threads (no codex-reply)
+**Reviewer model**: <resolved pair that actually ran — target gpt-5.6-sol high>, fresh threads (no codex-reply)
 **Attack thread**: <threadId 1>
 **Adjudicator thread**: <threadId 2>
 **Verdict**: <PASS / WARN / FAIL / NOT_APPLICABLE / BLOCKED / ERROR> (`reason_code: <...>`)
@@ -333,8 +334,8 @@ ARIS Audit Artifact Schema (`shared-references/assurance-contract.md`):
   },
   "trace_path": ".aris/traces/kill-argument/<date>_run<NN>/",
   "thread_id": "<defense threadId — primary; attack threadId in details>",
-  "reviewer_model": "<resolved — the model that actually ran (target: gpt-6-astra)>",
-  "reviewer_reasoning": "<resolved — the effort that actually ran (target: ultra)>",
+  "reviewer_model": "<resolved — the model that actually ran (target: gpt-5.6-sol)>",
+  "reviewer_reasoning": "<resolved — the effort that actually ran (target: high)>",
   "generated_at": "<UTC ISO-8601>",
   "details": {
     "attack_thread_id": "<threadId 1>",

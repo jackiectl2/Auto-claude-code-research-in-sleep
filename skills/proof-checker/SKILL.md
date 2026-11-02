@@ -1,12 +1,13 @@
 ---
 name: proof-checker
-description: Rigorous mathematical proof verification and fixing workflow. Reads a LaTeX proof, identifies gaps via cross-model review (external reviewer backend, ultra reasoning), fixes each gap with full derivations, re-reviews, and generates an audit report. Use when user says "检查证明", "verify proof", "proof check", "审证明", "check this proof", or wants rigorous mathematical verification of a theory paper.
+description: Rigorous mathematical proof verification and fixing workflow. Reads a LaTeX proof, identifies gaps via cross-model review (external reviewer backend, high reasoning), fixes each gap with full derivations, re-reviews, and generates an audit report. Use when user says "检查证明", "verify proof", "proof check", "审证明", "check this proof", or wants rigorous mathematical verification of a theory paper.
 argument-hint: "[path-to-tex-file or proof-description] [--deep-fix] [--restatement-check]"
 allowed-tools: Bash(*), Read, Grep, Glob, Write, Edit, Agent(aris-fanout-leaf), mcp__codex__codex, mcp__codex__codex-reply, mcp__manual_review__review, mcp__manual_review__review_reply, Skill(lean-formalize), mcp__antigravity__antigravity, mcp__antigravity__antigravity-reply, mcp__grok__grok, mcp__grok__grok-reply, mcp__claude-review__review, mcp__claude-review__review_reply, mcp__claude-review__review_start, mcp__claude-review__review_reply_start, mcp__claude-review__review_status
 ---
 
 # Proof Checker: Rigorous Mathematical Verification & Fixing
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -33,8 +34,8 @@ Systematically verify a mathematical proof via cross-model adversarial review, f
 ## Constants
 
 - MAX_REVIEW_ROUNDS = 3
-- REVIEWER_MODEL = `gpt-6-astra` — Default model for the Codex backend, reasoning effort `ultra` (deep-audit tier; per `shared-references/reviewer-routing.md`, capability fallback `gpt-6-astra`+`xhigh` then the model capability fallbacks starting with `gpt-6.1-sol`+`xhigh`, capability errors only — never below `xhigh`). Manual backend uses a model the user chooses, **but it must be a non-Claude model ARIS can classify** (OpenAI, Google, DeepSeek, Moonshot/Kimi, Qwen) — the executor is Claude, so routing the proof review into any Claude product makes Claude judge Claude and voids the cross-model invariant (see `shared-references/reviewer-routing.md`).
-- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (ultra). Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
+- REVIEWER_MODEL = `gpt-5.6-sol` — Project paper reviewer default with `high` effort. Resolve `--profile paper` for each new Codex thread; do not silently substitute another model when a project-selected model is unavailable. Manual backend uses a model the user chooses, **but it must be a non-Claude model ARIS can classify** (OpenAI, Google, DeepSeek, Moonshot/Kimi, Qwen) — the executor is Claude, so routing the proof review into any Claude product makes Claude judge Claude and voids the cross-model invariant (see `shared-references/reviewer-routing.md`).
+- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (high). Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
 
 ## Reviewer Calling Convention
 
@@ -42,7 +43,7 @@ When calling the reviewer, branch on REVIEWER_BACKEND:
 
 **If REVIEWER_BACKEND = `codex`:**
   Use `mcp__codex__codex` for new review threads
-  (`model: gpt-6-astra`, `config: {"model_reasoning_effort": "ultra"}`).
+  (`model: gpt-5.6-sol`, `config: {"model_reasoning_effort": "high"}`).
   Use `mcp__codex__codex-reply` for follow-up rounds (reuse threadId).
 
 **If REVIEWER_BACKEND = `manual`:**
@@ -281,11 +282,11 @@ artifacts here; the nested Lean task returns evidence without starting another
 `proof-checker` run. Routine proof checks do not require Lean. Reviewer agreement
 and unsuccessful counterexample searches do not discharge a proof obligation.
 
-### Phase 1: First Review (reviewer backend, ultra reasoning)
+### Phase 1: First Review (reviewer backend, high reasoning)
 
 Submit the **complete proof content** with the checklist below, using the selected backend.
 
-For `codex`, call `mcp__codex__codex` and always pin `model: gpt-6-astra` + `config: {"model_reasoning_effort": "ultra"}` (deep-audit tier). For `manual`, call `mcp__manual_review__review` with the identity-bearing config from the Reviewer Calling Convention above — `model`, `sandbox` and `cwd` are Codex-only.
+For `codex`, call `mcp__codex__codex` and pin the resolved paper pair (`model: gpt-5.6-sol` + `config: {"model_reasoning_effort": "high"}` by default). For `manual`, call `mcp__manual_review__review` with the identity-bearing config from the Reviewer Calling Convention above — `model`, `sandbox` and `cwd` are Codex-only.
 
 Use this exact prompt for both backends:
 
@@ -461,7 +462,7 @@ Log this choice — it is a scope-changing decision when it alters theorem state
 pdflatex -interaction=nonstopmode <file>.tex 2>&1 | grep -E "Error|Warning|undefined"
 ```
 
-### Phase 3: Re-Review (reviewer backend, ultra reasoning)
+### Phase 3: Re-Review (reviewer backend, high reasoning)
 
 Continue with the selected backend. For `codex`, use `mcp__codex__codex-reply` with the saved threadId. For `manual`, use `mcp__manual_review__review_reply` with the saved threadId. Include fix summaries. Request the same mandatory checklist.
 
@@ -491,8 +492,8 @@ The blind review prompt:
 ```
 [Codex:]
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "ultra"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Blind review of the following proof section. You have NOT seen any prior
     review or discussion. Check every step for correctness, hidden assumptions,
@@ -708,7 +709,7 @@ If the augmented Phase 1 call fails so badly that the normal proof review cannot
 
 ### Cross-model protocol
 - **Executor analyzes, reviewer critiques**: Claude reads proof, formulates questions, implements fixes. The external reviewer provides adversarial review.
-- **Reviewer reasoning always ultra** (deep-audit tier): never below `xhigh` — only the capability fallback chain in `reviewer-routing.md` may step down, and only on explicit capability errors.
+- **Reviewer reasoning:** use the selected paper profile (`high` by default) on every new Codex thread; replies inherit that pair. Any capability fallback follows `reviewer-routing.md` and must be recorded.
 - **Send full content**: Don't summarize — send actual math for line-by-line checking.
 - **Preserve threadId within a single run**: Use the appropriate reply tool (`mcp__codex__codex-reply` or `mcp__manual_review__review_reply`) for Phase 3 follow-up rounds within the same top-level `/proof-checker` invocation, so the reviewer keeps prior-issue context when judging whether a fix closed the gap. Across separate top-level invocations, always start a fresh thread (see "Thread independence" below).
 
@@ -768,8 +769,8 @@ The artifact conforms to the schema in `shared-references/assurance-contract.md`
   },
   "trace_path":       ".aris/traces/proof-checker/<date>_run<NN>/",
   "thread_id":        "<codex mcp thread id>",
-  "reviewer_model":   "<resolved — the model that actually ran (target: gpt-6-astra)>",
-  "reviewer_reasoning": "<resolved — the effort that actually ran (target: ultra)>",
+  "reviewer_model":   "<resolved — the model that actually ran (target: gpt-5.6-sol)>",
+  "reviewer_reasoning": "<resolved — the effort that actually ran (target: high)>",
   "generated_at":     "<UTC ISO-8601>",
   "details": {
     "theorems_audited": <int>,

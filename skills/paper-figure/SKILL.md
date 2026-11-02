@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, mcp__codex__codex, mcp__c
 
 # Paper Figure: Publication-Quality Plots from Experiment Data
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -41,7 +42,7 @@ Generate all figures and tables for a paper based on: **$ARGUMENTS**
 - **COLOR_PALETTE = `tab10`** — Default matplotlib color cycle. Options: `tab10`, `Set2`, `colorblind` (deuteranopia-safe)
 - **FONT_SIZE = 10** — Base font size (matches typical conference body text)
 - **FIG_DIR = `figures/`** — Output directory for generated figures
-- **REVIEWER_MODEL = `gpt-6-astra`** — Model used via Codex MCP for figure quality review.
+- **REVIEWER_MODEL = `gpt-5.6-sol`** — Model used via Codex MCP for figure quality review.
 
 ## Inputs
 
@@ -214,14 +215,14 @@ Save all snippets to `figures/latex_includes.tex` for easy copy-paste into the p
 
 ### Step 7: Figure Quality Review with REVIEWER_MODEL
 
-Send figure descriptions and captions to GPT-6-Astra for review:
+Send figure descriptions and captions to GPT-5.6-Sol for review:
 
 > Resolve this reviewer slot first; the following is the `backend=codex` example.
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Review these figure/table plans for a [VENUE] submission.
 

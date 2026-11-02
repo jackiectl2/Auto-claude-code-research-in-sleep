@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, Skill, mcp__codex__codex,
 
 # Workflow 3: Paper Writing Pipeline
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -37,7 +38,7 @@ In this hybrid pack, the pipeline itself is unchanged, but `paper-plan` and `pap
 
 - **VENUE = `ICLR`** — Target venue. Options: `ICLR`, `NeurIPS`, `ICML`, `CVPR`, `ACL`, `AAAI`, `ACM`, `IEEE_JOURNAL` (IEEE Transactions / Letters), `IEEE_CONF` (IEEE conferences). Affects style file, page limit, citation format.
 - **MAX_IMPROVEMENT_ROUNDS = 2** — Number of review→fix→recompile rounds in the improvement loop.
-- **REVIEWER_MODEL = `gpt-6-astra`** — Model used via Codex MCP for plan review, figure review, writing review, and improvement loop.
+- **REVIEWER_MODEL = `gpt-5.6-sol`** — Model used via Codex MCP for plan review, figure review, writing review, and improvement loop.
 - **AUTO_PROCEED = true** — Auto-continue between phases. Set `false` to pause and wait for user approval after each phase.
 - **HUMAN_CHECKPOINT = false** — When `true`, the improvement loop (Phase 5) pauses after each round's review to let you see the score and provide custom modification instructions. When `false` (default), the loop runs fully autonomously. Passed through to `/auto-paper-improvement-loop`.
 - **ILLUSTRATION = `figurespec`** — Architecture/illustration generator for Phase 2b: `figurespec` (default, deterministic JSON→SVG via `/figure-spec`, best for architecture/workflow/topology), `gemini` (AI-generated via `/paper-illustration`, best for qualitative method illustrations; needs `GEMINI_API_KEY`), `codex-image2` (AI-generated via `/paper-illustration-image2` through the local Codex native image bridge — no external API key, uses your ChatGPT Plus/Pro quota; experimental), `mermaid` (Mermaid syntax via `/mermaid-diagram`, free, best for flowcharts), or `false` (skip Phase 2b, manual only).
@@ -167,7 +168,7 @@ If `— style-ref: <source>` was passed in `$ARGUMENTS` and the helper succeeded
 - Design section structure (5-8 sections depending on paper type)
 - Plan figure/table placement with data sources
 - Scaffold citation structure
-- GPT-6-Astra reviews the plan for completeness
+- GPT-5.6-Sol reviews the plan for completeness
 
 **Output:** `PAPER_PLAN.md` with section plan, figure plan, citation scaffolding.
 
@@ -211,8 +212,8 @@ contract is what gets graded.)
 
    ```
    mcp__codex__codex:
-     model: gpt-6-astra
-     config: {"model_reasoning_effort": "xhigh"}
+     model: gpt-5.6-sol
+     config: {"model_reasoning_effort": "high"}
      prompt: |
        You are negotiating the acceptance contract for a paper BEFORE it is
        written. Read these files directly:
@@ -297,7 +298,7 @@ Invoke `/paper-figure` to generate data-driven plots and tables:
 - Generate matplotlib/seaborn plots from JSON/CSV data
 - Generate LaTeX comparison tables
 - Create `figures/latex_includes.tex` for easy insertion
-- GPT-6-Astra reviews figure quality and captions
+- GPT-5.6-Sol reviews figure quality and captions
 
 **Output:** `figures/` directory with PDFs, generation scripts, and LaTeX snippets.
 
@@ -400,7 +401,7 @@ If `— style-ref: <source>` was passed in `$ARGUMENTS` and the helper succeeded
 - Clean stale files from previous section structures
 - Automated bib cleaning (remove uncited entries)
 - De-AI polish (remove "delve", "pivotal", "landscape"...)
-- GPT-6-Astra reviews each section for quality
+- GPT-5.6-Sol reviews each section for quality
 
 **Output:** `paper/` directory with `main.tex`, `sections/*.tex`, `references.bib`, `math_commands.tex`.
 
@@ -453,7 +454,7 @@ Shall I proceed with the improvement loop?
 ```
 if paper contains \begin{theorem} or \begin{lemma} or \begin{proof}:
     Run /proof-checker "paper/"
-    This invokes GPT-6-Astra xhigh to:
+    This invokes GPT-5.6-Sol high to:
     - Verify all proof steps (hypothesis discharge, interchange justification, etc.)
     - Check for logic gaps, quantifier errors, missing domination conditions
     - Attempt counterexamples on key lemmas
@@ -498,9 +499,9 @@ If `— style-ref: <source>` was passed in `$ARGUMENTS` and the helper succeeded
 
 **What this does (2 rounds):**
 
-**Round 1:** GPT-6-Astra xhigh reviews the full paper → identifies CRITICAL/MAJOR/MINOR issues → Claude Code implements fixes → recompile → save `main_round1.pdf`
+**Round 1:** GPT-5.6-Sol high reviews the full paper → identifies CRITICAL/MAJOR/MINOR issues → Claude Code implements fixes → recompile → save `main_round1.pdf`
 
-**Round 2:** GPT-6-Astra xhigh re-reviews the recompiled draft cold (fresh review — no fix summaries, no conversation carry-over) → identifies remaining issues → Claude Code implements fixes → recompile → save `main_round2.pdf`
+**Round 2:** GPT-5.6-Sol high re-reviews the recompiled draft cold (fresh review — no fix summaries, no conversation carry-over) → identifies remaining issues → Claude Code implements fixes → recompile → save `main_round2.pdf`
 
 **Typical improvements (calibration cuts both ways):**
 - Fix assumption-model mismatches
@@ -581,7 +582,7 @@ After the final paper-claim-audit passes, run `/citation-audit` to verify every 
 ```
 if paper/references.bib (or paper.bib) exists and contains entries cited from sec/*.tex:
     Run /citation-audit "paper/"
-    Fresh cross-family reviewer (gpt-6-astra via Codex MCP) with web/DBLP/arXiv lookup
+    Fresh cross-family reviewer (gpt-5.6-sol via Codex MCP) with web/DBLP/arXiv lookup
     verifies each entry:
       (i)   EXISTENCE — paper resolves at claimed arXiv ID / DOI / venue
       (ii)  METADATA — author names, year, venue, title match canonical sources
@@ -607,6 +608,17 @@ else:
 **Empirical motivation:** in a real submission run, several real papers were cited in contexts they did not actually support, and at least one bib entry shipped with `author = "Anonymous"` because the metadata had not been resolved. None were caught by the improvement loop or numeric claim audit; only fresh web-lookup review surfaced them.
 
 ### Phase 5.9: Integrity Forensics (submission self-audit — default ON)
+
+**Project explicit-only override:** When the project root contains
+`INTEGRITY-FORENSICS.md` and it requires direct user authorization, do not run
+this ARIS launcher automatically. Treat this paper-writing run as
+`self_forensics: false` for the Phase 5.9 and Phase 6.0 gate, write the normal
+opt-out receipt with the reason `project explicit-only forensics policy`, and
+report that full forensics remains pending until the user calls the project
+guide. This preserves the project's separate, user-triggered Paper Final Review
+step and its `gpt-5.6-sol` + `high` reviewer pair. An explicit request to run
+forensics must follow that project guide directly; it does not turn on this
+upstream launcher with a different model.
 
 Run the [`/integrity-forensics`](../integrity-forensics/SKILL.md) launcher on
 `paper/` (ABSOLUTE path): the SHA-pinned Anti-Autoresearch sweep — evidence
@@ -719,7 +731,8 @@ skipping audits while claiming to have run them.
           re-parse the CURRENT $ARGUMENTS — an opt_out.txt receipt left by a
           PREVIOUS run never carries over; it is a record for the report line,
           not an authorization.
-          - current $ARGUMENTS has `— self_forensics: false` → skipping is
+          - current $ARGUMENTS has `— self_forensics: false`, or the project
+            explicit-only override above applies → skipping is
             legal; write/refresh paper/.aris/forensics/opt_out.txt.
           - otherwise the whole check is ONE command:
             `python3 "$GATE_HELPER" fresh --paper-dir paper/ --anti-ar-commit

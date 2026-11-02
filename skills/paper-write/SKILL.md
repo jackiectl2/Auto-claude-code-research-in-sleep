@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, mcp_
 
 # Paper Write: Section-by-Section LaTeX Generation
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -22,7 +23,7 @@ Draft a LaTeX paper based on: **$ARGUMENTS**
 
 ## Constants
 
-- **REVIEWER_MODEL = `gpt-6-astra`** — Model used via Codex MCP for section review. For `backend=codex`, use an OpenAI model.
+- **REVIEWER_MODEL = `gpt-5.6-sol`** — Model used via Codex MCP for section review. For `backend=codex`, use an OpenAI model.
 - **TARGET_VENUE = `ICLR`** — Default venue. Supported: `ICLR`, `NeurIPS`, `ICML`, `CVPR` (also ICCV/ECCV), `ACL` (also EMNLP/NAACL), `AAAI`, `ACM` (ACM MM, SIGIR, KDD, CHI, etc.), `IEEE_JOURNAL` (IEEE Transactions / Letters, e.g., T-PAMI, JSAC, TWC, TCOM, TSP, TIP), `IEEE_CONF` (IEEE conferences, e.g., ICC, GLOBECOM, INFOCOM, ICASSP). Determines style file and formatting.
 - **ANONYMOUS = true** — If true, use anonymous author block. Set `false` for camera-ready. Note: most IEEE venues do NOT use anonymous submission — set `false` for IEEE.
 - **MAX_PAGES = 9** — Main body page limit. For ML conferences: counts from first page to end of Conclusion section, references and appendix NOT counted. **For IEEE venues: references ARE counted toward the page limit.** Typical limits: IEEE journal = no strict limit (but 12-14 pages typical for Transactions, 4-5 for Letters), IEEE conference = 5-8 pages including references.
@@ -532,14 +533,14 @@ the reader — break it.
 
 ### Step 6: Cross-Review with REVIEWER_MODEL
 
-Send the complete draft to GPT-6-Astra xhigh:
+Send the complete draft to GPT-5.6-Sol high:
 
 > Resolve this reviewer slot first; the following is the `backend=codex` example.
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Review this [VENUE] paper draft (main body, excluding appendix).
 

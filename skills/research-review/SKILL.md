@@ -5,7 +5,7 @@ argument-hint: "[topic-or-scope]"
 allowed-tools: Bash(*), Read, Grep, Glob, Write, Edit, mcp__codex__codex, mcp__codex__codex-reply, mcp__manual_review__review, mcp__manual_review__review_reply, mcp__antigravity__antigravity, mcp__antigravity__antigravity-reply, mcp__grok__grok, mcp__grok__grok-reply, mcp__claude-review__review, mcp__claude-review__review_reply, mcp__claude-review__review_start, mcp__claude-review__review_reply_start, mcp__claude-review__review_status
 ---
 
-# Research Review via External Reviewer Backend (ultra reasoning)
+# Research Review via External Reviewer Backend (high reasoning)
 
 > 🔒 **Do not wrap this skill in `/loop`, `/schedule`, or `CronCreate`.** It is
 > verdict-bearing — it produces a cross-model review verdict, multi-round with
@@ -15,12 +15,12 @@ allowed-tools: Bash(*), Read, Grep, Glob, Write, Edit, mcp__codex__codex, mcp__c
 > ready → then review once), not the verdict. See
 > [`shared-references/external-cadence.md`](../shared-references/external-cadence.md).
 
-Get a multi-round critical review of research work from the selected external reviewer backend with maximum reasoning depth.
+Get a multi-round critical review of research work from the selected external reviewer backend at the resolved project model and effort.
 
 ## Constants
 
-- REVIEWER_MODEL = `gpt-6-astra` — Default model for the Codex backend, reasoning effort `ultra` (deep-audit tier). Must be an OpenAI model (e.g., `gpt-6-astra`, `gpt-6.1-sol`). Manual backend uses a model the user chooses — it must be a recognized model from a different family (OpenAI, Anthropic, Google, DeepSeek, Moonshot/Kimi, Qwen).
-- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (ultra). Resolve `— reviewer:`, project `.aris/reviewer.json`, then this default using `reviewer_route.py` (`--host claude-code --tier deep`), per [reviewer-backends.md](../shared-references/reviewer-backends.md). Gemini/Antigravity, Grok, and Claude Code use that contract at every call below. Legacy Oracle/manual contracts remain in `reviewer-routing.md`; unavailable selected routes do not silently fall back.
+- REVIEWER_MODEL = `gpt-6-sol` — Default model for the Codex backend, reasoning effort `high` (deep-audit tier). Must be an OpenAI model (e.g., `gpt-6-sol`, `gpt-6.1-sol`). Manual backend uses a model the user chooses — it must be a recognized model from a different family (OpenAI, Anthropic, Google, DeepSeek, Moonshot/Kimi, Qwen).
+- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (high). Resolve `— reviewer:`, project `.aris/reviewer.json`, then this default using `reviewer_route.py` (`--host claude-code --tier deep`), per [reviewer-backends.md](../shared-references/reviewer-backends.md). Gemini/Antigravity, Grok, and Claude Code use that contract at every call below. Legacy Oracle/manual contracts remain in `reviewer-routing.md`; unavailable selected routes do not silently fall back.
 
 ## Reviewer Calling Convention
 
@@ -71,7 +71,7 @@ Before calling the external reviewer, compile a comprehensive briefing:
 3. Identify: core claims, methodology, key results, known weaknesses
 
 ### Step 2: Initial Review (Round 1)
-Send a detailed prompt with ultra reasoning, using the selected backend. For
+Send a detailed prompt with high reasoning, using the selected backend. For
 the `codex` backend, keep the MCP payload short: write the full briefing to
 `RESEARCH_REVIEW_REQUEST.md`, then point Codex at that file.
 
@@ -79,8 +79,8 @@ the `codex` backend, keep the MCP payload short: write the full briefing to
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "ultra"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Read the review brief at <absolute path to RESEARCH_REVIEW_REQUEST.md>.
     Executor notes are not evidence beyond the files they cite, so verify the
@@ -146,7 +146,7 @@ only the path:
 ```text
 mcp__codex__codex-reply:
   threadId: [saved reviewer threadId from Step 2]
-  # replies inherit the thread's model/effort (gpt-6-astra ultra)
+  # replies inherit the thread's model/effort (gpt-6-sol high)
   prompt: |
     Read the updated review brief at <absolute path to
     RESEARCH_REVIEW_ROUND_2.md>.
@@ -196,7 +196,7 @@ Update project memory/notes with key review conclusions.
 
 ## Key Rules
 
-- For the default Codex route, pin `model: gpt-6-astra` + `config: {"model_reasoning_effort": "ultra"}` (deep-audit tier; capability fallback per `reviewer-routing.md`, never below `xhigh`). Other selected routes use their resolved model/effort.
+- For the default Codex route, pin `model: gpt-6-sol` + `config: {"model_reasoning_effort": "high"}` (deep-audit tier; capability fallback per `reviewer-routing.md`, never below `high`). Other selected routes use their resolved model/effort.
 - For `manual`, use the identity-bearing config above. Tool fields belong to their own provider contracts; do not copy a payload between bridges.
 - Put comprehensive context in the review brief. Codex can read local files
   when you pass an absolute path; manual reviewers usually cannot, so attach or

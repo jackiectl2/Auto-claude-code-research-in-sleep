@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, Grep, Glob, WebSearch, WebFetch, Agent(aris
 
 # Research Idea Creator
 
+> **Idea Creator reviewer profile:** resolve the primary Codex thread with `--profile idea_creator`; its Phase 4 triage reply inherits that thread. The separate second candidate-generation thread uses the explicit model and effort below.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -34,8 +35,8 @@ not pass a selected MCP reviewer model into a native generation call.
 - **PILOT_TIMEOUT_HOURS = 3** — Hard timeout: kill pilots exceeding 3 hours. Collect partial results if available.
 - **MAX_PILOT_IDEAS = 3** — Pilot at most 3 ideas in parallel. Additional ideas are validated on paper only.
 - **MAX_TOTAL_GPU_HOURS = 8** — Total GPU budget for all pilots combined.
-- **REVIEWER_MODEL = `gpt-6-astra`** — Default for `backend=codex`; generation keeps its existing model. Review models come from the selected route. For manual review, require a recognized actual reviewer model different from the actual executor family; never infer the executor family from the Claude Code host.
-- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP (xhigh). Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
+- **REVIEWER_MODEL = `gpt-5.6-sol`** — Primary Codex thread, `high`; generation keeps its existing model. Review models come from the selected route. For manual review, require a recognized actual reviewer model different from the actual executor family; never infer the executor family from the Claude Code host.
+- **REVIEWER_BACKEND = `codex`** — Default: Codex MCP. Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
 - **OUTPUT_DIR = `idea-stage/`** — All idea-stage outputs go here. Create the directory if it doesn't exist.
 
 > 💡 Override via argument, e.g., `/idea-creator "topic" — pilot budget: 4h per idea, 20h total`.
@@ -303,7 +304,7 @@ once it stops being tiny. Write the full brainstorming request to
 ```
 mcp__codex__codex:
   model: REVIEWER_MODEL
-  config: {"model_reasoning_effort": "xhigh"}
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     Read the idea-generation bundle at <absolute path to
     idea-stage/codex_brainstorm_bundle.md> and follow all instructions in it.
@@ -313,8 +314,8 @@ Run the bundle through **two reviewer models** and take the union — the two
 fail differently as generators, and the union keeps either model's taste from
 capping the pool:
 
-1. Once with the default reviewer model (`gpt-6-astra` today), as above.
-2. Once more with `model: "gpt-6.1-sol"` — same `xhigh` effort, same bundle, a
+1. Once with the primary reviewer model (`gpt-5.6-sol` + `high`), as above.
+2. Once more with `model: "gpt-6-sol"`, `config: {"model_reasoning_effort": "xhigh"}` — same bundle, a
    fresh thread. This is another GPT model, not cross-family acceptance; if it
    equals the chosen primary model, skip the duplicate second generation. Save
    the IDs of sessions actually created; Phase 4's triage follow-up goes to the

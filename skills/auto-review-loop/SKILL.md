@@ -25,7 +25,7 @@ Autonomously iterate: review → implement fixes → re-review, until an indepen
 - MAX_ROUNDS = 4
 - POSITIVE_THRESHOLD: score >= 6/10 **AND** verdict ∈ {"ready", "almost"} — **both** must hold. This matches the operative Phase-E STOP CONDITION exactly; the verdict vocabulary is {"ready", "almost", "not ready"} (a high score with a "not ready" verdict does NOT stop the loop). Earlier wording here used `or` and a stale verdict set ("accept"/"sufficient"/"ready for submission") — that was an internal inconsistency; the `AND` form is authoritative.
 - REVIEW_DOC: `review-stage/AUTO_REVIEW.md` (cumulative log) *(fall back to `./AUTO_REVIEW.md` for legacy projects)*
-- REVIEWER_MODEL = `gpt-6-astra` — Default model for the Codex backend. Must be an OpenAI model (e.g., `gpt-6-astra`, `gpt-6.1-sol`). Manual backend uses a model the user chooses — it must be a recognized model from a different family (OpenAI, Anthropic, Google, DeepSeek, Moonshot/Kimi, Qwen).
+- REVIEWER_MODEL = `gpt-6-sol` — Default model for the Codex backend. Must be an OpenAI model (e.g., `gpt-6-sol`, `gpt-6.1-sol`). Manual backend uses a model the user chooses — it must be a recognized model from a different family (OpenAI, Anthropic, Google, DeepSeek, Moonshot/Kimi, Qwen).
 - **REVIEWER_BACKEND** — With no inline or project backend selection, start as `auto`; Step -1 runs exactly one two-call native marker/challenge probe for the first review. A bound Copilot CLI root session uses `copilot-native` (built-in complementary `rubber-duck` subagent); an unbound/non-Copilot host keeps the existing `codex` default. Inline or project selection of `codex`, `antigravity`/`gemini`, `grok`, `claude-code`, `oracle-pro`, `agy`, or `manual` bypasses the probe. Explicit `— reviewer: copilot` retains the compatibility `copilot --agent` drive mode and its later Codex/manual finalizer. The native path gets both actual model IDs from host session events; it never needs `COPILOT_CLI` or caller-provided `--executor-model`. See `shared-references/reviewer-routing.md`.
 - **OUTPUT_DIR = `review-stage/`** — All review-stage outputs go here. Create the directory if it doesn't exist.
 - **HUMAN_CHECKPOINT = false** — When `true`, pause after each round's review (Phase B) and present the score + weaknesses to the user. Wait for user input before proceeding to Phase C. The user can: approve the suggested fixes, provide custom modification instructions, skip specific fixes, or stop the loop early. When `false` (default), the loop runs fully autonomously.
@@ -222,7 +222,7 @@ writes this receipt; its evidence sidecar is the acceptance record. The
 historical filename is retained for compatibility:
 
 ```jsonl
-{"run_id":"run_20260713_a1b2c3d4","round":3,"backend":"codex","effort":"xhigh","verdict":"ready","score":7.5,"executor_model":"claude-sonnet-4-5","executor_model_source":"caller-declared","executor_family":"anthropic","reviewer_model":"gpt-6-astra","reviewer_model_source":"requested","reviewer_family":"openai","family_relation":"different","identity_assurance":"caller_declared","independence_verified":"unverified","trace_id":"auto-review-loop/2026-07-13_run03","timestamp":"2026-07-13T14:22:00Z"}
+{"run_id":"run_20260713_a1b2c3d4","round":3,"backend":"codex","effort":"high","verdict":"ready","score":7.5,"executor_model":"claude-sonnet-4-5","executor_model_source":"caller-declared","executor_family":"anthropic","reviewer_model":"gpt-6-sol","reviewer_model_source":"requested","reviewer_family":"openai","family_relation":"different","identity_assurance":"caller_declared","independence_verified":"unverified","trace_id":"auto-review-loop/2026-07-13_run03","timestamp":"2026-07-13T14:22:00Z"}
 ```
 
 **Rules (non-negotiable):**
@@ -230,7 +230,7 @@ historical filename is retained for compatibility:
 | Rule | Detail |
 |------|--------|
 | **Append-only** | Never delete, never truncate, never overwrite lines. Only `>>`. |
-| **Who writes** | Only a `codex` or `manual` round at `xhigh` effort when `round_requires_external_acquittal` was `true`. A Copilot review/dispatch never writes a finalizer line itself. |
+| **Who writes** | Only a completed `codex` or `manual` round whose recorded effort matches its resolved route when `round_requires_external_acquittal` was `true`. A Copilot review/dispatch never writes a finalizer line itself. |
 | **When to write** | At the end of Phase E, after the policy-approved finalizer returns score >= 6 AND verdict ∈ {"ready", "almost"}. A normal default-Codex run does not need this sidecar. |
 | **`run_id` binding** | Every line carries the current `run_id` and round so the Copilot → finalizer transition is auditable. |
 | **Trace linkage** | `trace_id` MUST reference the real trace artifact in `.aris/traces/`; source and family fields in the receipt must exactly match that trace. |
@@ -395,8 +395,8 @@ Send comprehensive context to the independent reviewer using the selected backen
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     [Round N/MAX_ROUNDS of autonomous review loop]
 
@@ -457,8 +457,8 @@ Same as medium, but **prepend Reviewer Memory** to the prompt. Use the selected 
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-6-sol
+  config: {"model_reasoning_effort": "high"}
   prompt: |
     [Round N/MAX_ROUNDS of autonomous review loop]
 
@@ -517,7 +517,7 @@ review. The new MCP routes use their fresh file-reading session as specified
 above, with the same verification obligations:
 
 ```bash
-codex exec "$(cat <<'PROMPT'
+codex exec -m "$REVIEWER_MODEL" -c "model_reasoning_effort=\"$REVIEWER_EFFORT\"" "$(cat <<'PROMPT'
 You are an adversarial senior ML reviewer (NeurIPS/ICML level).
 This is Round N/MAX_ROUNDS of an autonomous review loop.
 
@@ -837,7 +837,7 @@ The prompt content:
 
 *Nightmare mode (codex exec):*
 ```bash
-codex exec "$(cat <<'PROMPT'
+codex exec -m "$REVIEWER_MODEL" -c "model_reasoning_effort=\"$REVIEWER_EFFORT\"" "$(cat <<'PROMPT'
 You are the same adversarial reviewer. The author rebuts your review:
 
 [paste executor's rebuttal]
@@ -992,7 +992,7 @@ is separate and unchanged.
 
 **If `round_backend ∈ {codex, manual}` AND `round_requires_external_acquittal = true` AND score >= 6 AND verdict ∈ {"ready", "almost"}:** append one external-finalizer line to `review-stage/ACQUITTAL_LOG.jsonl`:
 ```
-{"run_id":"<current-run_id>","round":<N>,"backend":"<codex|manual>","effort":"xhigh","verdict":"<ready|almost>","score":<score>,"executor_model":"<from-trace>","executor_model_source":"caller-declared","executor_family":"<derived-from-executor_model>","reviewer_model":"<from-trace-or-manual-Reviewer-Model>","reviewer_model_source":"<requested|backend-reported>","reviewer_family":"<derived-from-reviewer_model>","family_relation":"different","identity_assurance":"caller_declared","independence_verified":"unverified","trace_id":"<skill>/<YYYY-MM-DD>_run<NN>","timestamp":"<ISO8601>"}
+{"run_id":"<current-run_id>","round":<N>,"backend":"<codex|manual>","effort":"<actual-effort-from-trace>","verdict":"<ready|almost>","score":<score>,"executor_model":"<from-trace>","executor_model_source":"caller-declared","executor_family":"<derived-from-executor_model>","reviewer_model":"<from-trace-or-manual-Reviewer-Model>","reviewer_model_source":"<requested|backend-reported>","reviewer_family":"<derived-from-reviewer_model>","family_relation":"different","identity_assurance":"caller_declared","independence_verified":"unverified","trace_id":"<skill>/<YYYY-MM-DD>_run<NN>","timestamp":"<ISO8601>"}
 ```
 Use `>>` (append), never `>`. Re-derive both families from model strings and reject unknown/same-family pairs, but copy the model-source and assurance fields without upgrading them. The `trace_id` MUST be the actual trace directory path relative to `.aris/traces/` (e.g., `auto-review-loop/2026-07-13_run01`), matching the RUN_ID format from `save_trace.sh`: `<YYYY-MM-DD>_run<NN>` with the skill-name subdirectory prefix. Do NOT fabricate a synthetic `trace_...` identifier.
 
@@ -1028,7 +1028,7 @@ When loop ends (positive assessment or max rounds):
 
 - **Large file handling**: If the Write tool fails due to file size, immediately retry using Bash (`cat << 'EOF' > file`) to write in chunks. Do NOT ask the user for permission — just do it silently.
 
-- **Codex backend:** pin `model: gpt-6-astra` + `config: {"model_reasoning_effort": "xhigh"}` on the first call of every thread. `xhigh` is this loop's **regular tier** per [`reviewer-routing.md`](../shared-references/reviewer-routing.md), not the maximum — `ultra` belongs to the one-shot deep-audit skills and is slower and costlier per round. Do not raise this loop's tier; replies inherit the thread's pair, so changing it means a new thread. Follow the capability-fallback chain only for explicit capability errors.
+- **Codex backend:** resolve the project route for this research loop (`gpt-6-sol` + `high` by default) and pin both returned values on the first call of every thread. Replies inherit the pair; changing it means a new thread. In `nightmare`, set `REVIEWER_MODEL` and `REVIEWER_EFFORT` from that same route before either `codex exec` call, and record the pair actually returned. Follow the capability-fallback chain only for explicit capability errors.
 - **Native Copilot is an evidence-gated acceptance backend.** It never pins a
   reviewer model: Copilot selects the complementary rubber-duck model, and the
   helper verifies the actual cross-family pair from host events. A native

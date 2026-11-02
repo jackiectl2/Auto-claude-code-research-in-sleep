@@ -38,7 +38,7 @@ Each phase builds on the previous one's output. The final deliverables are a val
 - **MAX_PILOT_IDEAS = 3** — Run pilots for at most 3 top ideas in parallel. Additional ideas are validated on paper only.
 - **MAX_TOTAL_GPU_HOURS = 8** — Total GPU budget across all pilots. If exceeded, skip remaining pilots and note in report.
 - **AUTO_PROCEED = true** — When `true`, checkpoints are informational: report the selected option and continue in the same turn. Set to `false` to ask for explicit user confirmation and end the turn at each selection checkpoint.
-- **REVIEWER_MODEL = `gpt-6-astra`** — Model used via Codex MCP. For `backend=codex`, use an OpenAI model (e.g., `gpt-6-astra`, `gpt-6.1-sol`). Passed to sub-skills.
+- **REVIEWER_MODEL = `gpt-6-sol`** — Research reviewer default via Codex MCP; `/idea-creator` uses its own primary and second candidate-generation pairs. Forward the project's selected route to sub-skills without overwriting those two calls.
 - **OUTPUT_DIR = `idea-stage/`** — All idea-stage outputs go here. Create the directory if it doesn't exist.
 - **ARXIV_DOWNLOAD = false** — When `true`, `/research-lit` downloads the top relevant arXiv PDFs during Phase 1. When `false` (default), only fetches metadata. Passed through to `/research-lit`.
 - **COMPACT = false** — When `true`, generate compact summary files for short-context models and session recovery. Writes `idea-stage/IDEA_CANDIDATES.md` (top 3-5 ideas only) at the end of this workflow. Downstream skills read this instead of the full `idea-stage/IDEA_REPORT.md`.
@@ -265,7 +265,7 @@ Invoke `/idea-creator` with the landscape context (and `idea-stage/REF_PAPER_SUM
 
 **What this does:**
 - If `idea-stage/REF_PAPER_SUMMARY.md` exists, include it as context — ideas should build on, improve, or extend the reference paper
-- Brainstorm 8-12 concrete ideas via GPT-6-Astra xhigh
+- Brainstorm 8-12 concrete ideas via the Idea Creator's primary `gpt-5.6-sol` + `high` and second `gpt-6-sol` + `xhigh` threads
 - Filter by feasibility, compute cost, quick novelty search
 - Deep validate top ideas (full novelty check + devil's advocate)
 - Run parallel pilot experiments on available GPUs (top 2-3 ideas)
@@ -313,7 +313,7 @@ For each top idea (positive pilot signal), run a thorough novelty check:
 
 **What this does:**
 - Multi-source literature search (arXiv, Scholar, Semantic Scholar)
-- Cross-verify with GPT-6-Astra xhigh
+- Cross-verify with the selected `gpt-6-sol` + `high` research reviewer
 - Check for concurrent work (last 3-6 months)
 - Identify closest existing work and differentiation points
 
@@ -330,7 +330,7 @@ For the surviving top idea(s), get a sharp outside read — strongest case, name
 In composed mode `/research-review` folds its conclusions into `idea-stage/IDEA_REPORT.md` and cites the `.aris/traces/…` path instead of writing a standalone review `.md` in the project root.
 
 **What this does:**
-- GPT-6-Astra xhigh acts as a senior reviewer (NeurIPS/ICML level)
+- The selected `gpt-6-sol` + `high` reviewer acts as a senior reviewer (NeurIPS/ICML level)
 - Scores the idea, identifies weaknesses, suggests minimum viable improvements
 - Provides concrete feedback on experimental design
 

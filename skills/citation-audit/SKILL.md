@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Grep, Glob, Edit, Write, mcp__codex__codex, WebSea
 
 # Citation Audit
 
+> **Paper reviewer profile:** resolve each Codex reviewer slot with `--profile paper`; use the selected model and effort on the first call, including deep audits.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -56,7 +57,7 @@ The dangerous citation problems are **not** wildly fake citations — those are 
 
 ## Constants
 
-- **REVIEWER_MODEL = `gpt-6-astra`** — Used via Codex MCP. Default for cross-model review with web access.
+- **REVIEWER_MODEL = `gpt-5.6-sol`** — Used via Codex MCP. Default for cross-model review with web access.
 - **CONTEXT_POLICY = `fresh`** — Each audit run uses a new reviewer thread (REVIEWER_BIAS_GUARD). Never `codex-reply`.
 - **WEB_SEARCH = required** — The reviewer must perform real web/DBLP/arXiv lookups, not pattern-match from memory.
 - **OUTPUT = `CITATION_AUDIT.md`** — Human-readable per-entry verdict report.
@@ -99,8 +100,8 @@ For each **cited** bib entry — i.e., each key in `cited_keys` with at least on
 
 ```
 mcp__codex__codex:
-  model: gpt-6-astra
-  config: {"model_reasoning_effort": "xhigh"}
+  model: gpt-5.6-sol
+  config: {"model_reasoning_effort": "high"}
   sandbox: read-only
   prompt: |
     You are auditing a bibliographic entry. Use web/DBLP/arXiv search.
@@ -435,8 +436,8 @@ The artifact conforms to the schema in `shared-references/assurance-contract.md`
   },
   "trace_path":       ".aris/traces/citation-audit/<date>_run<NN>/",
   "thread_id":        "<codex mcp thread id>",
-  "reviewer_model":   "<resolved — the model that actually ran (target: gpt-6-astra)>",
-  "reviewer_reasoning": "<resolved — the effort that actually ran (target: xhigh)>",
+  "reviewer_model":   "<resolved — the model that actually ran (target: gpt-5.6-sol)>",
+  "reviewer_reasoning": "<resolved — the effort that actually ran (target: high)>",
   "generated_at":     "<UTC ISO-8601>",
   "details": {
     "total_entries":  <int>,                 // count of audited cited entries (= |cited_keys|), NOT the bib-file size

@@ -15,6 +15,14 @@ directives. The project file is `.aris/reviewer.json`, for example:
 {"backend": "antigravity", "model": "gemini-4-argon-high", "effort": "high"}
 ```
 
+A Codex project may also define `profiles.idea_creator` and `profiles.paper`, each
+with a `model` and `effort`. Pass `--profile idea_creator` from `/idea-creator`
+and `--profile paper` from paper-writing and its reviewer-bearing children;
+other research/experiment skills use the top-level pair. The resolver applies
+invocation override → selected profile → top-level project pair → host default.
+The second, independent `/idea-creator` candidate-generation call is separately
+pinned by that skill and does not reuse the primary reviewer profile.
+
 Supported routes:
 
 | Backend | Transport and default pair |

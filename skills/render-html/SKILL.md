@@ -7,6 +7,7 @@ allowed-tools: Bash(*), Read, Write, mcp__codex__codex, mcp__antigravity__antigr
 
 # /render-html: Markdown → single-file HTML for human reading
 
+> **Reviewer profile:** use `--profile paper` when reviewing a paper-writing artifact (paper plan, claim/citation/proof audit, or final paper HTML). Use the top-level research route for idea and experiment artifacts. Calls with `--no-review` do not invoke Codex.
 > **Before each reviewer slot**, follow [Selectable Reviewers](../shared-references/reviewer-backends.md):
 > resolve invocation → `.aris/reviewer.json` → Claude Code default (Codex MCP)
 > with `reviewer_route.py` through the canonical helper resolver, preserving this
@@ -158,7 +159,7 @@ So:
 - `--template dashboard` → no review by default. Force with `--review`.
 - Phase 2 workflow auto-emit (activated 2026-05) selects per-skill via the RENDER_HTML hooks documented below — interim views default to `--no-review`, final / audit-class deliverables default to full gate.
 
-**If `should_review` is true**, fire a fresh `mcp__codex__codex` thread (NEVER `codex-reply`; pin `model: gpt-6-astra` + `config: {"model_reasoning_effort": "xhigh"}` per `../shared-references/reviewer-routing.md`) with the prompt below. The reviewer reads the source MD + generated HTML directly; it does **not** see this skill's intermediate state.
+**If `should_review` is true**, resolve the applicable project reviewer route and fire a fresh `mcp__codex__codex` thread (NEVER `codex-reply`). Pin both returned values: paper artifacts default to `gpt-5.6-sol` + `high`; idea/experiment artifacts default to `gpt-6-sol` + `high`. The reviewer reads the source MD + generated HTML directly; it does **not** see this skill's intermediate state.
 
 **Scope of review (narrow on purpose).** The HTML reviewer audits **render fidelity / safety / structure only** — not claim truthfulness. Claim audit belongs upstream (`/paper-claim-audit`, `/research-review`, `/result-to-claim`). Specifically the reviewer checks:
 
