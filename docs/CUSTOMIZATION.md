@@ -65,10 +65,11 @@ Override inline: `/idea-discovery "topic" — pilot budget: 4h per idea, sources
 
 | Constant | Default | Description | Pass-through |
 |----------|---------|-------------|:---:|
-| `PILOT_MAX_HOURS` | 2h | Skip any pilot estimated to take longer per GPU | — |
-| `PILOT_TIMEOUT_HOURS` | 3h | Hard timeout — kill runaway pilots, collect partial results | — |
-| `MAX_PILOT_IDEAS` | 3 | Maximum number of ideas to pilot in parallel | — |
-| `MAX_TOTAL_GPU_HOURS` | 8h | Total GPU budget across all pilots | — |
+| `PILOT_MAX_HOURS` | 16h | Maximum estimated wall-clock time per pilot | — |
+| `PILOT_TIMEOUT_HOURS` | 24h | Pilot-level fallback timeout; Slurm walltime may end sooner | — |
+| `MAX_GPUS_PER_PILOT` | 2 | Use one or two GPUs as needed for the target-scale diagnostic | — |
+| `MAX_PILOT_IDEAS` | 3 | Maximum number of ideas to pilot, scheduled within project GPU limits | — |
+| `MAX_TOTAL_GPU_HOURS` | 196h | Total allocated GPU-hours across all pilots | — |
 | `AUTO_PROCEED` | true | Report the top-ranked option and continue in the same turn; `false` asks for explicit confirmation | — |
 | `ARXIV_DOWNLOAD` | false | Download top arXiv PDFs after literature search | → `research-lit` |
 

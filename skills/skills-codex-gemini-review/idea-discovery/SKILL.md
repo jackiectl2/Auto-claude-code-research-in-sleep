@@ -24,10 +24,11 @@ Each phase builds on the previous one's output. The final deliverables are a val
 
 ## Constants
 
-- **PILOT_MAX_HOURS = 2** — Skip any pilot experiment estimated to take > 2 hours per GPU. Flag as "needs manual pilot" in the report.
-- **PILOT_TIMEOUT_HOURS = 3** — Hard timeout: kill any running pilot that exceeds 3 hours. Collect partial results if available.
-- **MAX_PILOT_IDEAS = 3** — Run pilots for at most 3 top ideas in parallel. Additional ideas are validated on paper only.
-- **MAX_TOTAL_GPU_HOURS = 8** — Total GPU budget across all pilots. If exceeded, skip remaining pilots and note in report.
+- **PILOT_MAX_HOURS = 16** — Maximum estimated wall-clock runtime for one pilot; if longer, redesign only if the diagnostic remains informative or flag "needs manual pilot".
+- **PILOT_TIMEOUT_HOURS = 24** — Pilot-level fallback timeout, not guaranteed Slurm runtime; stop a pilot that actually exceeds it and collect partial results.
+- **MAX_GPUS_PER_PILOT = 2** — Use one or two GPUs as the target model and pilot question require; do not default to one solely to conserve resources.
+- **MAX_PILOT_IDEAS = 3** — Pilot at most 3 top ideas, scheduling them within the project's concurrent GPU limit. Additional ideas are validated on paper only.
+- **MAX_TOTAL_GPU_HOURS = 196** — Total GPU budget across all pilots, measured as allocated GPUs multiplied by actual running hours. If exceeded, skip remaining pilots and note in report.
 - **AUTO_PROCEED = true** — When `true`, checkpoints are informational: report the selected option and continue in the same turn. Set to `false` to ask for explicit user confirmation and end the turn at each selection checkpoint.
 - **OUTPUT_DIR = `idea-stage/`** — All idea-stage outputs go here. Create the directory if it doesn't exist.
 - **REVIEWER_MODEL = `gemini-review`** — Gemini reviewer invoked through the local `gemini-review` MCP bridge. Passed to the reviewer-aware sub-skills installed by this overlay.

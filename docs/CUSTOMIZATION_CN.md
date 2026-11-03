@@ -65,10 +65,11 @@ Skills 就是普通的 Markdown 文件，fork 后随意改：
 
 | 常量 | 默认值 | 说明 | 透传 |
 |------|--------|------|:---:|
-| `PILOT_MAX_HOURS` | 2h | 单个 pilot 预估超时则跳过 | — |
-| `PILOT_TIMEOUT_HOURS` | 3h | 硬超时——强制终止，收集部分结果 | — |
-| `MAX_PILOT_IDEAS` | 3 | 最多并行 pilot 几个 idea | — |
-| `MAX_TOTAL_GPU_HOURS` | 8h | 所有 pilot 的总 GPU 预算 | — |
+| `PILOT_MAX_HOURS` | 16h | 单个 pilot 预计墙钟时长上限 | — |
+| `PILOT_TIMEOUT_HOURS` | 24h | pilot 自身的兜底超时，不保证 Slurm 一定允许运行到此时 | — |
+| `MAX_GPUS_PER_PILOT` | 2 | 按目标模型的诊断需要选一张或两张 GPU | — |
+| `MAX_PILOT_IDEAS` | 3 | 最多给三个 idea 做 pilot，按项目 GPU 并发上限排程 | — |
+| `MAX_TOTAL_GPU_HOURS` | 196h | 所有 pilot 的已申请 GPU 张数乘实际运行时间之和 | — |
 | `AUTO_PROCEED` | true | 报告最优方案并在同一轮继续；设为 `false` 时请求明确确认 | — |
 | `ARXIV_DOWNLOAD` | false | 搜索后自动下载最相关的 arXiv PDF | → `research-lit` |
 

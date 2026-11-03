@@ -31,10 +31,11 @@ Reviewer overrides apply to Phase 4 and reviewer-bearing children. Phase 2
 brainstorming and native lens workers keep their existing generation model; do
 not pass a selected MCP reviewer model into a native generation call.
 
-- **PILOT_MAX_HOURS = 2** — Skip any pilot estimated to take > 2 hours per GPU. Flag as "needs manual pilot".
-- **PILOT_TIMEOUT_HOURS = 3** — Hard timeout: kill pilots exceeding 3 hours. Collect partial results if available.
-- **MAX_PILOT_IDEAS = 3** — Pilot at most 3 ideas in parallel. Additional ideas are validated on paper only.
-- **MAX_TOTAL_GPU_HOURS = 8** — Total GPU budget for all pilots combined.
+- **PILOT_MAX_HOURS = 16** — Maximum estimated wall-clock runtime for one pilot. If longer, redesign the diagnostic or flag "needs manual pilot".
+- **PILOT_TIMEOUT_HOURS = 24** — Pilot-level fallback timeout, not a guaranteed Slurm allocation; stop a pilot that actually runs longer and collect partial results.
+- **MAX_GPUS_PER_PILOT = 2** — Request one or two GPUs according to the target model's memory and measured parallel benefit; do not default to one solely to save time or GPUs.
+- **MAX_PILOT_IDEAS = 3** — Pilot at most 3 ideas; schedule them within the project's GPU concurrency limit. Additional ideas are validated on paper only.
+- **MAX_TOTAL_GPU_HOURS = 196** — Total budget across all pilots; count GPU allocation multiplied by actual running hours.
 - **REVIEWER_MODEL = `gpt-5.6-sol`** — Primary Codex thread, `high`; generation keeps its existing model. Review models come from the selected route. For manual review, require a recognized actual reviewer model different from the actual executor family; never infer the executor family from the Claude Code host.
 - **REVIEWER_BACKEND = `codex`** — Default: Codex MCP. Override with `— reviewer: oracle-pro` for Oracle MCP, or `— reviewer: manual` for Manual Review MCP. If manual-review MCP is unavailable, stop and print the install command; do not fall back to Codex. See `shared-references/reviewer-routing.md`.
 - **OUTPUT_DIR = `idea-stage/`** — All idea-stage outputs go here. Create the directory if it doesn't exist.
@@ -477,21 +478,16 @@ Before committing to a full research effort, run cheap pilot experiments to get 
 
 1. **Design pilots**: For each top idea, define the minimal experiment that would give a positive or negative signal:
    - Single seed, small scale (e.g., small dataset subset, fewer epochs)
-   - Target: 30 min - PILOT_MAX_HOURS per pilot on 1 GPU
-   - **Estimate GPU-hours BEFORE launching.** If estimated time > PILOT_MAX_HOURS, reduce scale (fewer epochs, smaller subset) or flag as "needs manual pilot"
+   - Target: 30 min - PILOT_MAX_HOURS of estimated wall-clock runtime per pilot, using the one or two GPUs needed for a meaningful diagnostic. Respect the project's concurrent GPU limit.
+   - Choose the pilot model and scale against the proposed final experiment. A smaller proxy can test implementation or early behavior, but a negative result on a few-B model does not refute a hypothesis about a tens-of-B target. If scale transfer is uncertain, label the proxy result underpowered or inconclusive and, when feasible, run a target-scale pilot with the GPUs it needs (up to two).
+   - **Estimate wall-clock time and GPU-hours BEFORE launching** (`requested GPUs × estimated runtime`). If time exceeds PILOT_MAX_HOURS or the total budget would be exceeded, redesign only when the reduced scale remains informative; otherwise flag "needs manual pilot". Do not shrink a target model merely to fit one GPU.
    - Decision criterion defined upfront — including what a positive, negative, and null outcome would each teach. Metric improvement is not required for a diagnostic contribution.
 
-2. **Deploy in parallel**: Use `/run-experiment` to launch pilots on different GPUs simultaneously:
-   ```
-   GPU 0: Pilot for Idea 1
-   GPU 1: Pilot for Idea 2
-   GPU 2: Pilot for Idea 3
-   ```
-   Use `run_in_background: true` to launch all at once.
+2. **Deploy when resources permit**: Use `/run-experiment` to launch ready pilots. A two-GPU pilot occupies two of the project's concurrent GPU slots; stagger pilots when their combined requests exceed that limit. Use `run_in_background: true` for pilots that can run concurrently.
 
-3. **Collect results**: Use `/monitor-experiment` to check progress. If any pilot exceeds PILOT_TIMEOUT_HOURS, kill it and collect partial results. Once all pilots complete (or timeout), compare:
+3. **Collect results**: Use `/monitor-experiment` to check progress. PILOT_TIMEOUT_HOURS is a fallback, not a promise of 24 hours from Slurm: set each job's walltime under the project's compute policy, including its resumption rule. If a pilot actually exceeds the fallback timeout, stop it and collect partial results. Once all pilots complete (or timeout), compare:
    - Which ideas showed positive signal?
-   - Which showed null/negative results? Classify each: core-hypothesis refuted, informative negative (often publishable), or underpowered pilot — do not eliminate by sign alone.
+   - Which showed null/negative results? Classify each: core-hypothesis refuted at the tested scale, informative negative (often publishable), or underpowered pilot. Record model-size and scale-transfer limitations; do not eliminate a target-scale idea from a smaller proxy's sign alone.
    - Any surprising findings that suggest a pivot?
    - Total GPU-hours consumed (track against MAX_TOTAL_GPU_HOURS budget)
 
