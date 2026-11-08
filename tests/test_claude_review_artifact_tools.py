@@ -126,6 +126,19 @@ class BridgeDefaultTests(unittest.TestCase):
         cmd = self._cmd(tools="")
         self.assertEqual(cmd[cmd.index("--tools") + 1], "")
 
+    def test_opus55_project_alias_uses_canonical_cli_identifier(self) -> None:
+        cmd = self._cmd(model="opus5.5")
+        self.assertEqual(cmd[cmd.index("--model") + 1], "claude-opus-5-5")
+
+    def test_opus55_default_alias_uses_canonical_cli_identifier(self) -> None:
+        with mock.patch.object(MODULE, "DEFAULT_MODEL", "opus5.5"):
+            cmd = self._cmd()
+        self.assertEqual(cmd[cmd.index("--model") + 1], "claude-opus-5-5")
+
+    def test_unrelated_model_identifier_is_unchanged(self) -> None:
+        cmd = self._cmd(model="claude-sonnet-4-6")
+        self.assertEqual(cmd[cmd.index("--model") + 1], "claude-sonnet-4-6")
+
     def test_reviewer_stays_in_plan_permission_mode(self) -> None:
         """Read-only tools plus plan mode: the reviewer cannot write either way."""
         cmd = self._cmd(tools=ARTIFACT_REVIEW_TOOLS)
@@ -138,24 +151,30 @@ class BridgeDefaultTests(unittest.TestCase):
         self.assertIn("--resume", cmd)
         self.assertEqual(cmd[cmd.index("--tools") + 1], "Read,Grep,Glob")
 
+    def test_opus55_alias_is_resolved_on_resumed_call(self) -> None:
+        cmd = self._cmd(session_id="sess-1", model="opus5.5")
+        self.assertEqual(cmd[cmd.index("--resume") + 1], "sess-1")
+        self.assertEqual(cmd[cmd.index("--model") + 1], "claude-opus-5-5")
+
     def test_reviewer_cannot_inherit_executor_mcp_servers(self) -> None:
         cmd = self._cmd(tools=ARTIFACT_REVIEW_TOOLS)
         self.assertIn("--strict-mcp-config", cmd)
         self.assertEqual(json.loads(cmd[cmd.index("--mcp-config") + 1]), {"mcpServers": {}})
 
-    def test_all_review_tools_expose_and_forward_cwd(self) -> None:
+    def test_all_review_tools_expose_and_forward_cwd_and_model(self) -> None:
         listing = MODULE.handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = {tool["name"]: tool for tool in listing["result"]["tools"]}
         for name in ("review", "review_reply", "review_start", "review_reply_start"):
             with self.subTest(tool=name):
                 self.assertEqual(tools[name]["inputSchema"]["properties"]["cwd"]["type"], "string")
                 function = "start_async_review" if name.endswith("start") else "run_claude_review"
-                args = {"prompt": "review", "cwd": "/review/workspace"}
+                args = {"prompt": "review", "cwd": "/review/workspace", "model": "opus5.5"}
                 if "reply" in name:
                     args["threadId"] = "existing-session"
                 with mock.patch.object(MODULE, function, return_value=({}, None)) as invoke:
                     MODULE.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": name, "arguments": args}})
                 self.assertEqual(invoke.call_args.kwargs["cwd"], "/review/workspace")
+                self.assertEqual(invoke.call_args.kwargs["model"], "opus5.5")
                 if "reply" in name:
                     self.assertEqual(invoke.call_args.kwargs["session_id"], "existing-session")
 

@@ -61,6 +61,12 @@ codex mcp add claude-review -- ~/.codex/mcp-servers/claude-review/run_with_claud
 - `CLAUDE_REVIEW_STATE_DIR`: async job storage, defaults to `~/.codex/state/claude-review`
 - `CLAUDE_REVIEW_DEBUG_LOG`: local protocol/debug log path; logs include prompts and responses
 
+ARIS project configurations may use the compatibility alias `opus5.5`. The
+bridge resolves that alias to Claude Code's canonical `claude-opus-5-5`
+identifier for both explicit tool arguments and `CLAUDE_REVIEW_MODEL`.
+Unrecognized model identifiers pass through unchanged, and the bridge never
+falls back to a different model.
+
 ## Notes
 
 - The bridge runs Claude in non-interactive `-p` mode.
@@ -96,6 +102,8 @@ Example file review:
 Results include `requestedModel` (explicit argument or bridge default, otherwise
 `null`) separately from `model`. The latter comes from the CLI result's `model`
 field or a single `modelUsage` entry, with `modelSource` identifying the source.
+For example, a successful `opus5.5` request reports `requestedModel` as
+`opus5.5` and the CLI-reported `model` as `claude-opus-5-5`.
 `reportedModels` lists the usage entries when present. If the CLI does not
 identify one model unambiguously, `model` is `null`; the requested alias is never
 substituted as evidence. These are CLI reports, not independent server identity

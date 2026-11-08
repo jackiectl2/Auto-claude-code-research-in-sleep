@@ -38,6 +38,9 @@ DEFAULT_MODEL = os.environ.get("CLAUDE_REVIEW_MODEL", "")
 DEFAULT_SYSTEM = os.environ.get("CLAUDE_REVIEW_SYSTEM", "")
 DEFAULT_TOOLS = os.environ.get("CLAUDE_REVIEW_TOOLS", "")
 DEFAULT_TIMEOUT_SEC = int(os.environ.get("CLAUDE_REVIEW_TIMEOUT_SEC", "600"))
+MODEL_ALIASES = {
+    "opus5.5": "claude-opus-5-5",
+}
 _default_debug_dir = os.environ.get("TEMP", "/tmp") if sys.platform == "win32" else "/tmp"
 DEBUG_LOG = Path(os.environ.get("CLAUDE_REVIEW_DEBUG_LOG", f"{_default_debug_dir}/{SERVER_NAME}-mcp-debug.log"))
 STATE_DIR = Path(
@@ -115,6 +118,11 @@ def find_claude_bin() -> str | None:
     if Path(CLAUDE_BIN).is_file():
         return CLAUDE_BIN
     return shutil.which(CLAUDE_BIN)
+
+
+def resolve_cli_model(model: str) -> str:
+    """Resolve ARIS project aliases at the Claude CLI boundary."""
+    return MODEL_ALIASES.get(model, model)
 
 
 def parse_claude_json(raw_stdout: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -262,7 +270,7 @@ def build_command(
 
     selected_model = model or DEFAULT_MODEL
     if selected_model:
-        cmd.extend(["--model", selected_model])
+        cmd.extend(["--model", resolve_cli_model(selected_model)])
 
     selected_system = system or DEFAULT_SYSTEM
     if selected_system:

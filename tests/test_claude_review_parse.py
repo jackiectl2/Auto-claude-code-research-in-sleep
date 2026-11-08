@@ -308,6 +308,34 @@ class ReviewContractRegressionTests(unittest.TestCase):
         self.assertEqual(payload["modelSource"], "cli_model_usage")
         self.assertEqual(payload["reportedModels"], ["deepseek-flash"])
 
+    def test_opus55_alias_preserves_request_and_reports_actual_model(self) -> None:
+        event = _result_event()
+        event.pop("model")
+        event["modelUsage"] = {"claude-opus-5-5": {"inputTokens": 12}}
+        with mock.patch.object(MODULE, "find_claude_bin", return_value="/fake/claude"), \
+             mock.patch.object(MODULE.subprocess, "run", return_value=_completed_process(json.dumps(event))) as run:
+            payload, error = MODULE.run_claude_review("review", model="opus5.5")
+        self.assertIsNone(error)
+        self.assertEqual(payload["requestedModel"], "opus5.5")
+        self.assertEqual(payload["model"], "claude-opus-5-5")
+        self.assertEqual(payload["modelSource"], "cli_model_usage")
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--model") + 1], "claude-opus-5-5")
+
+    def test_opus55_default_preserves_request_and_reports_actual_model(self) -> None:
+        event = _result_event()
+        event.pop("model")
+        event["modelUsage"] = {"claude-opus-5-5": {"inputTokens": 12}}
+        with mock.patch.object(MODULE, "DEFAULT_MODEL", "opus5.5"), \
+             mock.patch.object(MODULE, "find_claude_bin", return_value="/fake/claude"), \
+             mock.patch.object(MODULE.subprocess, "run", return_value=_completed_process(json.dumps(event))) as run:
+            payload, error = MODULE.run_claude_review("review")
+        self.assertIsNone(error)
+        self.assertEqual(payload["requestedModel"], "opus5.5")
+        self.assertEqual(payload["model"], "claude-opus-5-5")
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--model") + 1], "claude-opus-5-5")
+
     def test_missing_or_multiple_reported_models_never_echo_request(self) -> None:
         for usage, expected in ((None, []), ({"model-a": {}, "model-b": {}}, ["model-a", "model-b"])):
             with self.subTest(usage=usage):
@@ -369,19 +397,33 @@ class ReviewContractRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
              mock.patch.object(MODULE, "JOBS_DIR", Path(directory) / "jobs"), \
              mock.patch.object(MODULE.subprocess, "Popen", return_value=mock.Mock(pid=12345)):
-            started, error = MODULE.start_async_review("review", cwd=directory)
+            started, error = MODULE.start_async_review("review", model="opus5.5", cwd=directory)
             self.assertIsNone(error)
             job_id = started["jobId"]
             expected = str(Path(directory).resolve())
-            self.assertEqual(MODULE.read_json(MODULE.job_state_path(job_id))["request"]["cwd"], expected)
-            review = {"threadId": "session", "response": "OK", "cwd": expected, "model": "deepseek-flash"}
+            request = MODULE.read_json(MODULE.job_state_path(job_id))["request"]
+            self.assertEqual(request["cwd"], expected)
+            self.assertEqual(request["model"], "opus5.5")
+            review = {
+                "threadId": "session",
+                "response": "OK",
+                "cwd": expected,
+                "requestedModel": "opus5.5",
+                "model": "claude-opus-5-5",
+                "modelSource": "cli_model_usage",
+                "reportedModels": ["claude-opus-5-5"],
+            }
             with mock.patch.object(MODULE, "run_claude_review", return_value=(review, None)) as run:
                 self.assertEqual(MODULE.run_async_job(job_id), 0)
             self.assertEqual(run.call_args.kwargs["cwd"], expected)
+            self.assertEqual(run.call_args.kwargs["model"], "opus5.5")
             status, error = MODULE.get_review_status(job_id)
             self.assertIsNone(error)
             self.assertTrue(status["done"])
             self.assertEqual(status["cwd"], expected)
+            self.assertEqual(status["requestedModel"], "opus5.5")
+            self.assertEqual(status["model"], "claude-opus-5-5")
+            self.assertEqual(status["modelSource"], "cli_model_usage")
 
 
 if __name__ == "__main__":
