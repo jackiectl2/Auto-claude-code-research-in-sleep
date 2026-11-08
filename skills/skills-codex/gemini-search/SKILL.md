@@ -29,12 +29,14 @@ Use Gemini when you want AI-driven discovery that goes beyond keyword matching �
 - **MIN_YEAR = 2022** — Default minimum publication year. Override with `— year: 2020-`.
 - **DEFAULT_MODEL = project switch** — Resolve the project's model before each search. An explicit `— model: <model-id>` request may override it after any required paid-use authorization.
 
-Read the project's `.aris/gemini-search.json` through `tools/resolve_gemini_search_model.py` in the installed ARIS repo. Resolve that repo from `.aris/installed-skills-codex.txt` (`repo_root`); do not use the machine-wide ARIS pointer for a project. From the project directory or a child directory, run `python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py"` and use its output as `GEMINI_LITERATURE_MODEL` for both MCP and CLI. Stop if resolution fails. `argon_enabled: false` selects upstream `auto-gemini-3`; `true` selects `gemini-4-argon` with project authorization. Projects created before this switch retain the prior Argon default until migrated.
+Read the project's `.aris/gemini-search.json` through `tools/resolve_gemini_search_model.py` in the installed ARIS repo. Resolve that repo from `.aris/installed-skills-codex.txt` (`repo_root`); do not use the machine-wide ARIS pointer for a project. Set `PROJECT_ROOT` to the actual project root before calling Gemini. When working from a temporary directory, set `ARIS_PROJECT_ROOT` to that root explicitly; never infer a project or paid model from the temporary directory. Use the resolved `GEMINI_LITERATURE_MODEL` for both MCP and CLI. Stop if resolution fails. `argon_enabled: false` selects upstream `auto-gemini-3`; `true` selects `gemini-4-argon` with project authorization. Projects created before this switch retain the prior Argon default until migrated.
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel)
+PROJECT_ROOT=${ARIS_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}
+test -f "$PROJECT_ROOT/.aris/installed-skills-codex.txt" || { echo "Set ARIS_PROJECT_ROOT to the actual project root" >&2; exit 2; }
 ARIS_REPO=$(awk -F '\t' '$1=="repo_root" {print $2; exit}' "$PROJECT_ROOT/.aris/installed-skills-codex.txt")
-GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py")
+test -f "$ARIS_REPO/tools/resolve_gemini_search_model.py" || { echo "Installed ARIS model resolver is missing" >&2; exit 2; }
+GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py" --project-root "$PROJECT_ROOT") || exit 2
 ```
 
 > Overrides (append to arguments):
@@ -150,12 +152,12 @@ Format as a numbered list with all fields for each paper.',
 If `mcp__gemini-cli__ask-gemini` fails, is not configured, or does not honor the selected model, fall back to CLI. In both commands below, substitute an explicitly requested `— model:` value for the default:
 
 ```bash
-gemini -m "$GEMINI_LITERATURE_MODEL" -p 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
-...same prompt as above...' 2>/dev/null
+(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
+...same prompt as above...')
 ```
 
 - **Timeout**: 120 seconds
-- **Stderr**: Pipe to `/dev/null` — contains hook warnings, not part of the response
+- **Failure handling**: Keep stderr and check the exit status. On failure, report the error and stop this Gemini source; do not treat empty output as search results. If Gemini CLI reports an untrusted workspace, review and trust this project explicitly. Do not add `--skip-trust` or change global trust settings automatically.
 
 **When to use which:**
 - MCP is preferred because it integrates natively with Claude Code's tool system, handles model selection, and avoids shell escaping issues.

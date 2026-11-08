@@ -350,12 +350,14 @@ If `$EXA_FETCHER` is empty or the `exa-py` SDK is unavailable, skip this source 
 **Gemini search** (only when `gemini` is in sources):
 
 When the user explicitly requests `— sources: gemini` (or includes `gemini` in a combined source list), use Gemini for AI-powered broad literature discovery.
-Before calling Gemini, read the project switch through `tools/resolve_gemini_search_model.py` in the ARIS repo recorded as `repo_root` in `.aris/installed-skills.txt`. Run it from the project directory or a child directory and use its output as `GEMINI_LITERATURE_MODEL` in both MCP and CLI. Do not use the machine-wide ARIS pointer for a project. Stop this Gemini source if model resolution fails; do not silently choose another model. Off means upstream `auto-gemini-3`; on means `gemini-4-argon` with project authorization.
+Before calling Gemini, read the project switch through `tools/resolve_gemini_search_model.py` in the ARIS repo recorded as `repo_root` in `.aris/installed-skills.txt`. Use the actual project root, not a temporary directory; when the shell is outside the project, set `ARIS_PROJECT_ROOT` explicitly. Use the resolved `GEMINI_LITERATURE_MODEL` in both MCP and CLI. Do not use the machine-wide ARIS pointer for a project. Stop this Gemini source if model resolution fails; do not silently choose another model. Off means upstream `auto-gemini-3`; on means `gemini-4-argon` with project authorization.
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel)
+PROJECT_ROOT=${ARIS_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}
+test -f "$PROJECT_ROOT/.aris/installed-skills.txt" || { echo "Set ARIS_PROJECT_ROOT to the actual project root" >&2; exit 2; }
 ARIS_REPO=$(awk -F '\t' '$1=="repo_root" {print $2; exit}' "$PROJECT_ROOT/.aris/installed-skills.txt")
-GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py")
+test -f "$ARIS_REPO/tools/resolve_gemini_search_model.py" || { echo "Installed ARIS model resolver is missing" >&2; exit 2; }
+GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py" --project-root "$PROJECT_ROOT") || exit 2
 ```
 
 **Priority 1 — Gemini MCP** (preferred): Call `mcp__gemini-cli__ask-gemini` with the search prompt:
@@ -385,7 +387,7 @@ Find at least 15 papers.',
 })
 ```
 
-**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): Use `gemini -m "$GEMINI_LITERATURE_MODEL" -p "...same prompt..." 2>/dev/null` via Bash (timeout: 120s). Do not label output from another model as Argon output.
+**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): From the actual project root, use `(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p "...same prompt...")` via Bash (timeout: 120s). Keep stderr and check the exit status. On failure, report the error and stop this Gemini source; do not treat empty output as results or label output from another model as Argon. If Gemini CLI reports an untrusted workspace, review and trust this project explicitly. Do not add `--skip-trust` or change global trust settings automatically.
 
 If both MCP and CLI are unavailable, skip this source gracefully and continue with the remaining requested sources.
 
