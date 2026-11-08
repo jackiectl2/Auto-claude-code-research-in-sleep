@@ -104,12 +104,18 @@ def test_project_phase_profiles_do_not_change_other_providers(tmp_path):
     assert (other["model"], other["effort"]) == ("grok-4.7", "xhigh")
 
 
-def test_claude_model_uses_config_without_fabricated_effort(tmp_path):
-    route = resolve_route(tmp_path, "claude-code", reviewer="claude-code", model="configured-model")
+def test_claude_model_and_effort_use_config_without_fabricated_evidence(tmp_path):
+    route = resolve_route(
+        tmp_path,
+        "claude-code",
+        reviewer="claude-code",
+        model="configured-model",
+        effort="high",
+    )
     assert route["model"] == "configured-model"
-    assert route["effort"] is None
-    with pytest.raises(ValueError, match="cannot enforce effort"):
-        resolve_route(tmp_path, "codex", reviewer="claude-code", effort="high")
+    assert route["effort"] == "high"
+    with pytest.raises(ValueError, match="Claude reviewer effort"):
+        resolve_route(tmp_path, "codex", reviewer="claude-code", effort="ultra")
 
 
 @pytest.mark.parametrize("text", ['{', '[]', '{"backend": "missing"}', '{"backend": null}', '{"model": 4}', '{"effort": ""}', '{"profiles": {}}'])

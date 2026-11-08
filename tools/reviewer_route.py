@@ -127,8 +127,8 @@ def resolve_route(
         selected_effort = selected_effort or "xhigh"
         if selected_effort not in {"low", "medium", "high", "xhigh"}:
             raise ValueError("Grok reviewer effort must be low, medium, high, or xhigh")
-    elif selected_effort is not None:
-        raise ValueError("claude-code bridge cannot enforce effort; omit it and use existing CLI config")
+    elif selected_effort is not None and selected_effort not in {"low", "medium", "high", "xhigh", "max"}:
+        raise ValueError("Claude reviewer effort must be low, medium, high, xhigh, or max")
     if backend in TOOLS:
         fresh_tool, continuation_tool = TOOLS[backend]
     return {

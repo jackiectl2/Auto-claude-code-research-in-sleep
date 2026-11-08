@@ -55,17 +55,27 @@ codex mcp add claude-review -- ~/.codex/mcp-servers/claude-review/run_with_claud
 
 - `CLAUDE_BIN`: Claude CLI path, defaults to `claude`
 - `CLAUDE_REVIEW_MODEL`: optional reviewer model override
+- `CLAUDE_REVIEW_EFFORT`: optional Claude Code effort override; one of `low`, `medium`, `high`, `xhigh`, or `max`
 - `CLAUDE_REVIEW_SYSTEM`: optional default system prompt
 - `CLAUDE_REVIEW_TOOLS`: Claude tools override, defaults to empty string
 - `CLAUDE_REVIEW_TIMEOUT_SEC`: subprocess timeout, defaults to `600`
 - `CLAUDE_REVIEW_STATE_DIR`: async job storage, defaults to `~/.codex/state/claude-review`
 - `CLAUDE_REVIEW_DEBUG_LOG`: local protocol/debug log path; logs include prompts and responses
 
-ARIS project configurations may use the compatibility alias `opus5.5`. The
-bridge resolves that alias to Claude Code's canonical `claude-opus-5-5`
-identifier for both explicit tool arguments and `CLAUDE_REVIEW_MODEL`.
-Unrecognized model identifiers pass through unchanged, and the bridge never
-falls back to a different model.
+ARIS project configurations may use compact versioned aliases for the Claude
+families: `opus5.5`, `sonnet4.6`, or `haiku4.5`. The bridge converts these to
+Claude Code's canonical `claude-opus-5-5`, `claude-sonnet-4-6`, and
+`claude-haiku-4-5` forms for explicit tool arguments and
+`CLAUDE_REVIEW_MODEL`. It applies the same family/version convention to future
+minor versions such as `opus5.6` and preserves context suffixes such as `[1m]`.
+Already canonical and unrecognized identifiers pass through unchanged. A
+future vendor naming change may still require an update; the bridge never
+guesses a different model or falls back.
+
+All four review calls also accept `effort`. The bridge validates it and sends
+`claude --effort <level>` on every new or resumed CLI process. When omitted,
+`CLAUDE_REVIEW_EFFORT` is used if configured; otherwise Claude Code keeps its
+own configured default.
 
 ## Notes
 
@@ -107,8 +117,11 @@ For example, a successful `opus5.5` request reports `requestedModel` as
 `reportedModels` lists the usage entries when present. If the CLI does not
 identify one model unambiguously, `model` is `null`; the requested alias is never
 substituted as evidence. These are CLI reports, not independent server identity
-verification. No context-window size or reasoning effort is inferred from the
-model name.
+verification. `requestedEffort` records the explicit or environment-selected
+CLI argument. Claude Code 2.1.319 result JSON does not report actual effort, so
+`effort` and `effortSource` remain `null`; the request is never copied into an
+actual-effort field. No context-window size or reasoning effort is inferred
+from the model name.
 
 Empty reviews, nonterminal output, CLI errors and explicit unfinished stop
 reasons are returned as errors, with no automatic retry. Existing synchronous

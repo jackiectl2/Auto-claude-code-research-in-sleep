@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,12 +36,16 @@ def _configure_stdio_for_mcp() -> None:
 SERVER_NAME = os.environ.get("CLAUDE_REVIEW_SERVER_NAME", "claude-review")
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
 DEFAULT_MODEL = os.environ.get("CLAUDE_REVIEW_MODEL", "")
+DEFAULT_EFFORT = os.environ.get("CLAUDE_REVIEW_EFFORT", "")
 DEFAULT_SYSTEM = os.environ.get("CLAUDE_REVIEW_SYSTEM", "")
 DEFAULT_TOOLS = os.environ.get("CLAUDE_REVIEW_TOOLS", "")
 DEFAULT_TIMEOUT_SEC = int(os.environ.get("CLAUDE_REVIEW_TIMEOUT_SEC", "600"))
-MODEL_ALIASES = {
-    "opus5.5": "claude-opus-5-5",
-}
+CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+CLAUDE_MODEL_ALIAS_RE = re.compile(
+    r"^(?P<family>opus|sonnet|haiku)(?P<major>[1-9]\d*)\."
+    r"(?P<minor>\d+)(?P<suffix>\[[^\[\]]+\])?$",
+    re.IGNORECASE,
+)
 _default_debug_dir = os.environ.get("TEMP", "/tmp") if sys.platform == "win32" else "/tmp"
 DEBUG_LOG = Path(os.environ.get("CLAUDE_REVIEW_DEBUG_LOG", f"{_default_debug_dir}/{SERVER_NAME}-mcp-debug.log"))
 STATE_DIR = Path(
@@ -121,8 +126,25 @@ def find_claude_bin() -> str | None:
 
 
 def resolve_cli_model(model: str) -> str:
-    """Resolve ARIS project aliases at the Claude CLI boundary."""
-    return MODEL_ALIASES.get(model, model)
+    """Resolve compact Claude family/version aliases at the CLI boundary."""
+    if not isinstance(model, str) or not model:
+        raise ValueError("Claude model must be a nonempty string")
+    match = CLAUDE_MODEL_ALIAS_RE.fullmatch(model)
+    if match is None:
+        return model
+    suffix = match.group("suffix") or ""
+    return (
+        f"claude-{match.group('family').lower()}-"
+        f"{match.group('major')}-{match.group('minor')}{suffix}"
+    )
+
+
+def resolve_cli_effort(effort: str) -> str:
+    """Validate a Claude Code effort value before launching the CLI."""
+    if not isinstance(effort, str) or effort not in CLAUDE_EFFORTS:
+        allowed = ", ".join(sorted(CLAUDE_EFFORTS))
+        raise ValueError(f"Claude effort must be one of: {allowed}")
+    return effort
 
 
 def parse_claude_json(raw_stdout: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -234,6 +256,9 @@ def serialize_job(job: dict[str, Any]) -> dict[str, Any]:
         "requestedModel": result.get("requestedModel"),
         "modelSource": result.get("modelSource"),
         "reportedModels": result.get("reportedModels"),
+        "effort": result.get("effort"),
+        "requestedEffort": result.get("requestedEffort"),
+        "effortSource": result.get("effortSource"),
         "cwd": result.get("cwd") or (job.get("request") or {}).get("cwd"),
         "duration_ms": result.get("duration_ms"),
         "stop_reason": result.get("stop_reason"),
@@ -251,6 +276,7 @@ def build_command(
     *,
     session_id: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     system: str | None = None,
     tools: str | None = None,
 ) -> list[str]:
@@ -268,9 +294,15 @@ def build_command(
     if session_id:
         cmd.extend(["--resume", session_id])
 
-    selected_model = model or DEFAULT_MODEL
-    if selected_model:
-        cmd.extend(["--model", resolve_cli_model(selected_model)])
+    if model is not None:
+        cmd.extend(["--model", resolve_cli_model(model)])
+    elif DEFAULT_MODEL:
+        cmd.extend(["--model", resolve_cli_model(DEFAULT_MODEL)])
+
+    if effort is not None:
+        cmd.extend(["--effort", resolve_cli_effort(effort)])
+    elif DEFAULT_EFFORT:
+        cmd.extend(["--effort", resolve_cli_effort(DEFAULT_EFFORT)])
 
     selected_system = system or DEFAULT_SYSTEM
     if selected_system:
@@ -307,6 +339,7 @@ def run_claude_review(
     *,
     session_id: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     system: str | None = None,
     tools: str | None = None,
     cwd: str | None = None,
@@ -317,6 +350,7 @@ def run_claude_review(
             prompt,
             session_id=session_id,
             model=model,
+            effort=effort,
             system=system,
             tools=tools,
         )
@@ -386,9 +420,12 @@ def run_claude_review(
         "threadId": thread_id,
         "response": response_text.strip(),
         "model": model_name,
-        "requestedModel": model or DEFAULT_MODEL or None,
+        "requestedModel": model if model is not None else (DEFAULT_MODEL or None),
         "modelSource": model_source,
         "reportedModels": reported_models,
+        "effort": None,
+        "requestedEffort": effort if effort is not None else (DEFAULT_EFFORT or None),
+        "effortSource": None,
         "cwd": working_dir,
         "duration_ms": payload.get("duration_ms"),
         "stop_reason": payload.get("stop_reason"),
@@ -400,12 +437,21 @@ def start_async_review(
     *,
     session_id: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     system: str | None = None,
     tools: str | None = None,
     cwd: str | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     try:
         working_dir = resolve_cwd(cwd)
+        if model is not None:
+            resolve_cli_model(model)
+        elif DEFAULT_MODEL:
+            resolve_cli_model(DEFAULT_MODEL)
+        if effort is not None:
+            resolve_cli_effort(effort)
+        elif DEFAULT_EFFORT:
+            resolve_cli_effort(DEFAULT_EFFORT)
     except (OSError, ValueError) as exc:
         return None, str(exc)
     job_id = uuid.uuid4().hex
@@ -424,6 +470,7 @@ def start_async_review(
             "prompt": prompt,
             "threadId": session_id,
             "model": model,
+            "effort": effort,
             "system": system,
             "tools": tools,
             "cwd": working_dir,
@@ -517,6 +564,7 @@ def run_async_job(job_id: str) -> int:
             str(request.get("prompt", "")),
             session_id=request.get("threadId"),
             model=request.get("model"),
+            effort=request.get("effort"),
             system=request.get("system"),
             tools=request.get("tools"),
             cwd=request.get("cwd"),
@@ -617,6 +665,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                                 "cwd": {"type": "string", "description": "Working directory; defaults to the MCP server directory. Repeat on replies."},
                                 "system": {"type": "string", "description": "Optional system prompt"},
                                 "model": {"type": "string", "description": "Optional Claude model override"},
+                                "effort": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "Optional Claude Code effort override"},
                                 "tools": {"type": "string", "description": "Optional Claude tools override, empty string disables tools"},
                             },
                             "required": ["prompt"],
@@ -634,6 +683,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                                 "cwd": {"type": "string", "description": "Use the same working directory as the first review; not inherited by threadId."},
                                 "system": {"type": "string", "description": "Optional system prompt override"},
                                 "model": {"type": "string", "description": "Optional Claude model override"},
+                                "effort": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "Optional Claude Code effort override"},
                                 "tools": {"type": "string", "description": "Optional Claude tools override, empty string disables tools"},
                             },
                             "required": ["prompt"],
@@ -649,6 +699,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                                 "cwd": {"type": "string", "description": "Working directory; defaults to the MCP server directory. Repeat on replies."},
                                 "system": {"type": "string", "description": "Optional system prompt"},
                                 "model": {"type": "string", "description": "Optional Claude model override"},
+                                "effort": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "Optional Claude Code effort override"},
                                 "tools": {"type": "string", "description": "Optional Claude tools override, empty string disables tools"},
                             },
                             "required": ["prompt"],
@@ -666,6 +717,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                                 "cwd": {"type": "string", "description": "Use the same working directory as the first review; not inherited by threadId."},
                                 "system": {"type": "string", "description": "Optional system prompt override"},
                                 "model": {"type": "string", "description": "Optional Claude model override"},
+                                "effort": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "Optional Claude Code effort override"},
                                 "tools": {"type": "string", "description": "Optional Claude tools override, empty string disables tools"},
                             },
                             "required": ["prompt"],
@@ -696,6 +748,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
             payload, error = run_claude_review(
                 str(args.get("prompt", "")),
                 model=args.get("model"),
+                effort=args.get("effort"),
                 system=args.get("system"),
                 tools=args.get("tools"),
                 cwd=args.get("cwd"),
@@ -710,6 +763,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                 str(args.get("prompt", "")),
                 session_id=str(thread_id),
                 model=args.get("model"),
+                effort=args.get("effort"),
                 system=args.get("system"),
                 tools=args.get("tools"),
                 cwd=args.get("cwd"),
@@ -720,6 +774,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
             payload, error = start_async_review(
                 str(args.get("prompt", "")),
                 model=args.get("model"),
+                effort=args.get("effort"),
                 system=args.get("system"),
                 tools=args.get("tools"),
                 cwd=args.get("cwd"),
@@ -734,6 +789,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
                 str(args.get("prompt", "")),
                 session_id=str(thread_id),
                 model=args.get("model"),
+                effort=args.get("effort"),
                 system=args.get("system"),
                 tools=args.get("tools"),
                 cwd=args.get("cwd"),

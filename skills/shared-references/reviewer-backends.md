@@ -30,7 +30,7 @@ Supported routes:
 | `codex` | Codex host: fresh native reviewer agent; Claude Code host: Codex MCP. `gpt-6-astra`, deep tier `ultra`, regular tier `xhigh`. |
 | `antigravity` / `gemini` | Antigravity MCP; `gemini-4-argon-high` / `high`. To use its Claude option, explicitly select e.g. `claude-opus-5-5-high` / `high`. |
 | `grok` | Grok MCP; `grok-4.7` / `xhigh`. |
-| `claude-code` / `claude` / `claude-review` | Local Claude Code through `claude-review` MCP. No model override by default; it uses the CLI's configured provider, which can be DeepSeek. |
+| `claude-code` / `claude` / `claude-review` | Local Claude Code through `claude-review` MCP. No model or effort override by default; it uses the CLI's configured provider and effort, which can be a non-Anthropic provider. Explicit effort supports `low`, `medium`, `high`, `xhigh`, and `max`. |
 
 The aliases identify a transport, not proof of a model family. Always record the
 returned model. `agy` remains the older **gemini-review** route; it is not an
@@ -56,8 +56,10 @@ when a different reviewer was already selected.
 An inline backend override to a different provider discards that provider's
 project model/effort. An override to the same backend may inherit those fields.
 `reviewer effort` is separate from ARIS workflow `effort`. The Claude Code bridge
-has no effort argument: omit it, and do not label the configured CLI effort as
-observed evidence. Configuration errors or an unavailable selected backend are
+passes an explicit reviewer effort as `claude --effort`; omit it to retain the
+CLI's configured default. Claude result JSON does not report actual effort, so
+the request must not be labeled as provider-returned effort evidence.
+Configuration errors or an unavailable selected backend are
 `REVIEW_UNAVAILABLE` for the new MCP routes; do not silently switch providers.
 Existing Codex capability fallback and legacy Oracle/Agy warning/fallback rules
 remain in `reviewer-routing.md` and apply only to their own routes.
@@ -89,7 +91,7 @@ unsupported parameter merely because another host uses it.
 | Codex MCP | `mcp__codex__codex`: existing skill parameters and pinned model/effort | `mcp__codex__codex-reply`: saved thread id and prompt |
 | Antigravity | `mcp__antigravity__antigravity`: prompt, explicit cwd, model, effort | `antigravity-reply`: **only** threadId and prompt |
 | Grok | `mcp__grok__grok`: prompt, explicit cwd, model, effort; read-only sandbox and `read_file,grep,list_dir` | `grok-reply`: **only** threadId and prompt |
-| Claude Code | `mcp__claude-review__review`: prompt, cwd, optional model; `tools: Read,Grep,Glob` for file reviews, empty tools for prompt-only reviews | `review_reply`: threadId, prompt, and repeat cwd/tools and any explicit model override |
+| Claude Code | `mcp__claude-review__review`: prompt, cwd, optional model and effort; `tools: Read,Grep,Glob` for file reviews, empty tools for prompt-only reviews | `review_reply`: threadId, prompt, and repeat cwd/tools and any explicit model/effort override |
 
 Antigravity and Grok replies retain the first call's cwd, model, effort and
 review tools. Do not pass Claude's `tools` string to Antigravity, Codex `config`
@@ -98,7 +100,8 @@ to Grok, or native agent ids to an MCP. Keep each route's saved session id.
 For a long Claude Code review, use `review_start` / `review_reply_start`, save
 the **jobId**, and poll `review_status` until `done=true`. A queued/running job
 is not a completed review; only its final payload supplies the conversation
-id and response. Repeat cwd/tools when starting a follow-up job.
+id and response. Repeat cwd/tools and any explicit model/effort override when
+starting a follow-up job.
 
 Artifact-grounded reviews still give the reviewer primary file paths and ask it
 to read them. Set cwd to a directory that contains the review inputs; do not
@@ -128,7 +131,9 @@ automatically retry a dispatched paid call after an ambiguous failure.
 Use actual returned `model`, effort and their source fields, never the requested
 pair as substitute evidence. Claude's `modelSource=cli_model_usage` may report a
 configured alias; preserve that source and do not claim independent server
-identity verification. Antigravity's selected variant and Grok's session summary
+identity verification. Claude's `requestedEffort` proves the CLI argument but
+is not provider-returned actual-effort metadata; its actual effort remains null
+when the result omits it. Antigravity's selected variant and Grok's session summary
 likewise have specific evidence limits. Missing values remain unknown/null.
 
 The current executor model also matters: Claude Code can run DeepSeek, and
