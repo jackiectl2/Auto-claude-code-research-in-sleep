@@ -305,10 +305,11 @@ def test_literature_gemini_routes_read_project_switch_in_both_skill_trees() -> N
         for skill_name in ("gemini-search", "research-lit"):
             text = read(skill_root / skill_name / "SKILL.md")
             assert "resolve_gemini_search_model.py" in text
-            assert "model: '<GEMINI_LITERATURE_MODEL>'" in text
+            assert '-m "$GEMINI_LITERATURE_MODEL"' in text
             assert 'gemini -m "$GEMINI_LITERATURE_MODEL"' in text
             assert '--project-root "$PROJECT_ROOT"' in text
             assert 'cd "$PROJECT_ROOT" && gemini -m' in text
+            assert 'mcp__gemini-cli__ask-gemini' not in text
         search_text = read(skill_root / "gemini-search" / "SKILL.md")
         assert "DEFAULT_MODEL = project switch" in search_text
 

@@ -20,7 +20,7 @@ This skill uses OpenAlex as a **comprehensive open academic graph** source:
 | `/openalex` | OpenAlex API | **Open citation graph, institutional affiliations, funding data, comprehensive metadata** |
 | `/deepxiv` | DeepXiv CLI | Layered reading: search, brief, section map, section reads |
 | `/exa-search` | Exa API | Broad web search: blogs, docs, news, companies, research papers |
-| `/gemini-search` | Gemini MCP / CLI | AI-powered broad literature discovery |
+| `/gemini-search` | Gemini CLI | AI-powered broad literature discovery |
 
 Use OpenAlex when you want:
 - **Open citation data** — fully open citation graph (no API key required for basic use)

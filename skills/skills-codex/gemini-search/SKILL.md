@@ -2,7 +2,7 @@
 name: gemini-search
 description: Search research papers via Gemini for broad literature discovery. Use when user says "gemini search", "gemini papers", "search with gemini", or wants AI-powered literature discovery beyond arXiv/Semantic Scholar indexes.
 argument-hint: "[search-query]"
-allowed-tools: Bash(*), Read, Write, mcp__gemini-cli__*
+allowed-tools: Bash(*), Read, Write
 ---
 
 # Gemini Literature Search
@@ -19,7 +19,7 @@ This skill uses Gemini as a **broad literature discovery** source:
 | `/semantic-scholar` | Semantic Scholar API | Published venue papers (IEEE, ACM, Springer) with citation counts |
 | `/deepxiv` | DeepXiv CLI | Layered reading: search, brief, section map, section reads |
 | `/exa-search` | Exa API | Broad web search: blogs, docs, news, companies, research papers |
-| `/gemini-search` | Gemini MCP / CLI | **AI-powered broad literature discovery** — searches across multiple angles, aliases, and sub-problems |
+| `/gemini-search` | Gemini CLI | **AI-powered broad literature discovery** — searches across multiple angles, aliases, and sub-problems |
 
 Use Gemini when you want AI-driven discovery that goes beyond keyword matching — Gemini decomposes topics into sub-problems, explores naming variants, and surfaces papers that traditional API searches may miss.
 
@@ -29,7 +29,7 @@ Use Gemini when you want AI-driven discovery that goes beyond keyword matching �
 - **MIN_YEAR = 2022** — Default minimum publication year. Override with `— year: 2020-`.
 - **DEFAULT_MODEL = project switch** — Resolve the project's model before each search. An explicit `— model: <model-id>` request may override it after any required paid-use authorization.
 
-Read the project's `.aris/gemini-search.json` through `tools/resolve_gemini_search_model.py` in the installed ARIS repo. Resolve that repo from `.aris/installed-skills-codex.txt` (`repo_root`); do not use the machine-wide ARIS pointer for a project. Set `PROJECT_ROOT` to the actual project root before calling Gemini. When working from a temporary directory, set `ARIS_PROJECT_ROOT` to that root explicitly; never infer a project or paid model from the temporary directory. Use the resolved `GEMINI_LITERATURE_MODEL` for both MCP and CLI. Stop if resolution fails. `argon_enabled: false` selects upstream `auto-gemini-3`; `true` selects `gemini-4-argon` with project authorization. Projects created before this switch retain the prior Argon default until migrated.
+Read the project's `.aris/gemini-search.json` through `tools/resolve_gemini_search_model.py` in the installed ARIS repo. Resolve that repo from `.aris/installed-skills-codex.txt` (`repo_root`); do not use the machine-wide ARIS pointer for a project. Set `PROJECT_ROOT` to the actual project root before calling Gemini. When working from a temporary directory, set `ARIS_PROJECT_ROOT` to that root explicitly; never infer a project or paid model from the temporary directory. Use the resolved `GEMINI_LITERATURE_MODEL` for the CLI call. Stop if resolution fails. `argon_enabled: false` selects upstream `auto-gemini-3`; `true` selects `gemini-4-argon` with project authorization. Projects created before this switch retain the prior Argon default until migrated.
 
 ```bash
 PROJECT_ROOT=${ARIS_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}
@@ -56,41 +56,21 @@ GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.
    npm install -g @google/gemini-cli
    gemini auth
    ```
-3. **gemini-mcp-tool** — MCP bridge for Codex CLI ([jamubc/gemini-mcp-tool](https://github.com/jamubc/gemini-mcp-tool))
-   ```bash
-   npm install -g gemini-mcp-tool
-   ```
-
-### MCP Configuration
-
-Register the Gemini bridge in Codex CLI:
-
-```bash
-codex mcp add gemini-cli -- npx -y gemini-mcp-tool
-```
+The third-party `gemini-mcp-tool` is not required or installed by this workflow. Its current default backend can ignore model selection, while its Gemini CLI backend can retry quota failures with Flash. Neither behavior is acceptable for a project-selected literature model.
 
 ### Authentication
 
-Gemini CLI uses your Google account or an API key. Reuse an existing Google account login, or set an API key in the same shell **before starting Codex** so the MCP process inherits it:
+Gemini CLI uses your Google account or an API key. Reuse an existing Google account login, or set an API key in the same shell **before starting Codex** so its tool shell inherits it:
 
 ```bash
 export GEMINI_API_KEY='your-key-here'
 codex
 ```
 
-A separate tool-shell `export` does not update an already running host or MCP process. If you keep credentials in an environment file, load it explicitly before starting the host rather than relying on automatic `.env` loading.
+A separate tool-shell `export` does not update an already running host. If you keep credentials in an environment file, load it explicitly before starting the host rather than relying on automatic `.env` loading.
 
 - Free key from [Google AI Studio](https://aistudio.google.com/apikey)
 - Flash model (`gemini-2.5-flash`) has a generous free tier (500 req/min)
-
-### Available MCP Tools
-
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `mcp__gemini-cli__ask-gemini` | `prompt` (required), `model` (optional), `sandbox` (optional) | Ask Gemini for analysis or research; supports `@file` syntax |
-| `mcp__gemini-cli__sandbox-test` | `prompt` (required), `model` (optional) | Safe code execution in sandbox |
-| `mcp__gemini-cli__ping` | — | Connection test |
-| `mcp__gemini-cli__help` | — | Show Gemini CLI help |
 
 ### Verify Setup
 
@@ -110,15 +90,12 @@ Parse `$ARGUMENTS` for:
 - **venues**: Comma-separated venue filter
 - **model**: Override DEFAULT_MODEL
 
-### Step 2: Execute Search (MCP Priority)
+### Step 2: Execute Search (Gemini CLI)
 
-**Priority 1 — Gemini MCP** (preferred):
-
-Try calling `mcp__gemini-cli__ask-gemini` with the search prompt:
+Build the search prompt below, substituting the query, year, and result count. Store the complete prompt in `GEMINI_SEARCH_PROMPT`:
 
 ```
-mcp__gemini-cli__ask-gemini({
-  prompt: 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
+You are a research literature scout. Search comprehensively for papers on: "QUERY"
 
 IMPORTANT CONSTRAINTS:
 1. Search from MULTIPLE angles — do not just use the exact query. Decompose the topic into sub-problems, aliases, neighboring tasks, and common benchmark/settings variants.
@@ -142,26 +119,19 @@ Find at least MAX_RESULTS papers with good coverage across:
 - papers with open-source code
 - closely related variants of the topic
 
-Format as a numbered list with all fields for each paper.',
-  model: '<GEMINI_LITERATURE_MODEL>'
-})
+Format as a numbered list with all fields for each paper.
 ```
 
-**Priority 2 — Gemini CLI fallback** (if MCP unavailable):
-
-If `mcp__gemini-cli__ask-gemini` fails, is not configured, or does not honor the selected model, fall back to CLI. In both commands below, substitute an explicitly requested `— model:` value for the default:
+Run the CLI from the project root with the selected model. Substitute an explicitly requested `— model:` value only after any required paid-use authorization:
 
 ```bash
-(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
-...same prompt as above...')
+(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p "$GEMINI_SEARCH_PROMPT")
 ```
 
 - **Timeout**: 120 seconds
 - **Failure handling**: Keep stderr and check the exit status. On failure, report the error and stop this Gemini source; do not treat empty output as search results. If Gemini CLI reports an untrusted workspace, review and trust this project explicitly. Do not add `--skip-trust` or change global trust settings automatically.
 
-**When to use which:**
-- MCP is preferred because it integrates natively with Claude Code's tool system, handles model selection, and avoids shell escaping issues.
-- CLI fallback ensures the skill works even when MCP is not configured or the MCP server process has crashed.
+Do not route this project-selected model through the current third-party `gemini-mcp-tool`: its default backend can ignore `model`, and its Gemini backend can silently retry with Flash after a quota error.
 
 ### Step 3: Parse Results
 
@@ -208,9 +178,9 @@ After presenting results, suggest:
 
 ## Key Rules
 
-- **MCP first, CLI second.** Try `mcp__gemini-cli__ask-gemini` with the selected model before the CLI fallback. If the MCP backend ignores the model parameter, use the CLI with `-m <selected-model>` instead; do not treat another model's output as the selected model's output.
+- **Use the selected CLI model.** Pass `-m <selected-model>` and check the command result; do not treat another model's output as the selected model's output.
 - **Gemini is a discovery source, not a database.** Its results may include papers it "knows about" from training data. Always cross-verify critical details (exact titles, venues, years) via `/semantic-scholar` or `/arxiv` when precision matters.
 - **Do not use Gemini for citation counts.** It may hallucinate citation numbers. Use Semantic Scholar for authoritative citation data.
-- **Pipe stderr to `/dev/null` in CLI mode** — Gemini CLI emits hook warnings on stderr.
+- **Preserve stderr and exit status** so authentication, trust, quota, and model errors remain visible.
 - **Timeout generously in CLI mode** — Gemini's thorough search can take 30-60 seconds. Set timeout to 120s.
-- If both MCP and CLI are unreachable, suggest using `/semantic-scholar`, `/arxiv`, or `/research-lit "topic" — sources: web` as alternatives.
+- If Gemini CLI is unreachable, suggest using `/semantic-scholar`, `/arxiv`, or `/research-lit "topic" — sources: web` as alternatives.

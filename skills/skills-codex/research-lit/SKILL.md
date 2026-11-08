@@ -69,7 +69,7 @@ Examples:
 | 5 | **Semantic Scholar API** | `semantic-scholar` | `$S2_FETCHER` resolves (canonical name `semantic_scholar_fetch.py`, per integration-contract §2 Codex chain) | Published venue papers (IEEE, ACM, Springer) with structured metadata: citation counts, venue info, TLDR. **Only runs when explicitly requested** |
 | 6 | **DeepXiv CLI** | `deepxiv` | `$DEEPXIV_FETCHER` resolves (canonical name `deepxiv_fetch.py`, per integration-contract §2) **and** `deepxiv` CLI present | Progressive paper retrieval: search, brief, head, section, trending, web search. **Only runs when explicitly requested** |
 | 7 | **Exa Search** | `exa` | `$EXA_FETCHER` resolves (canonical name `exa_search.py`, per integration-contract §2); fetcher handles `exa-py` SDK + API key internally | AI-powered broad web search with content extraction (highlights, text, summaries). Covers blogs, docs, news, companies, and research papers beyond arXiv/S2. **Only runs when explicitly requested** |
-| 8 | **Gemini** (MCP / CLI) | `gemini` | `mcp__gemini-cli__ask-gemini` is available, or `gemini` CLI is installed | AI-powered broad literature discovery that decomposes topics into sub-problems, aliases, and variants. **Only runs when explicitly requested** |
+| 8 | **Gemini CLI** | `gemini` | `gemini` CLI is installed | AI-powered broad literature discovery that decomposes topics into sub-problems, aliases, and variants. Uses the project-selected CLI model. **Only runs when explicitly requested** |
 | 9 | **OpenAlex** | `openalex` | `$OPENALEX_FETCHER` resolves (canonical name `openalex_fetch.py`, per integration-contract §2 Codex chain) and Python `requests` is importable | Open citation graph with institutional affiliations, funding data, and broad work metadata. **Only runs when explicitly requested** |
 
 > If the user explicitly requests Zotero or Obsidian and that source is not configured, stop and tell the user how to enable it. Only sources that were not requested may be skipped silently.
@@ -319,7 +319,7 @@ If `exa_search.py` or the `exa-py` SDK is unavailable, skip this source graceful
 **Gemini search** (only when `gemini` is in sources):
 
 When the user explicitly requests `— sources: gemini` (or includes `gemini` in a combined source list), use Gemini for AI-powered broad literature discovery.
-Before calling Gemini, read the project switch through `tools/resolve_gemini_search_model.py` in the ARIS repo recorded as `repo_root` in `.aris/installed-skills-codex.txt`. Use the actual project root, not a temporary directory; when the shell is outside the project, set `ARIS_PROJECT_ROOT` explicitly. Use the resolved `GEMINI_LITERATURE_MODEL` in both MCP and CLI. Do not use the machine-wide ARIS pointer for a project. Stop this Gemini source if model resolution fails; do not silently choose another model. Off means upstream `auto-gemini-3`; on means `gemini-4-argon` with project authorization.
+Before calling Gemini, read the project switch through `tools/resolve_gemini_search_model.py` in the ARIS repo recorded as `repo_root` in `.aris/installed-skills-codex.txt`. Use the actual project root, not a temporary directory; when the shell is outside the project, set `ARIS_PROJECT_ROOT` explicitly. Use the resolved `GEMINI_LITERATURE_MODEL` in the CLI call. Do not use the machine-wide ARIS pointer for a project. Stop this Gemini source if model resolution fails; do not silently choose another model. Off means upstream `auto-gemini-3`; on means `gemini-4-argon` with project authorization.
 
 ```bash
 PROJECT_ROOT=${ARIS_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}
@@ -329,11 +329,10 @@ test -f "$ARIS_REPO/tools/resolve_gemini_search_model.py" || { echo "Installed A
 GEMINI_LITERATURE_MODEL=$(python3 "$ARIS_REPO/tools/resolve_gemini_search_model.py" --project-root "$PROJECT_ROOT") || exit 2
 ```
 
-**Priority 1 — Gemini MCP** (preferred): Call `mcp__gemini-cli__ask-gemini` with the search prompt:
+**Gemini CLI:** Build the following prompt and store it in `GEMINI_SEARCH_PROMPT`:
 
 ```
-mcp__gemini-cli__ask-gemini({
-  prompt: 'You are a research literature scout. Search comprehensively for papers on: "QUERY"
+You are a research literature scout. Search comprehensively for papers on: "QUERY"
 
 IMPORTANT CONSTRAINTS:
 1. Search from MULTIPLE angles — decompose the topic into sub-problems, aliases, neighboring tasks, and common benchmark/settings variants.
@@ -351,14 +350,12 @@ For EACH paper found, provide ALL of the following:
 - Code URL: [GitHub/GitLab link if available, or "No code"]
 - Summary: [one-sentence core contribution]
 
-Find at least 15 papers.',
-  model: '<GEMINI_LITERATURE_MODEL>'
-})
+Find at least 15 papers.
 ```
 
-**Priority 2 — Gemini CLI fallback** (if MCP unavailable or its backend ignores the requested model): From the actual project root, use `(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p "...same prompt...")` via Bash (timeout: 120s). Keep stderr and check the exit status. On failure, report the error and stop this Gemini source; do not treat empty output as results or label output from another model as Argon. If Gemini CLI reports an untrusted workspace, review and trust this project explicitly. Do not add `--skip-trust` or change global trust settings automatically.
+From the actual project root, run `(cd "$PROJECT_ROOT" && gemini -m "$GEMINI_LITERATURE_MODEL" -p "$GEMINI_SEARCH_PROMPT")` via Bash (timeout: 120s). Keep stderr and check the exit status. On failure, report the error and stop this Gemini source; do not treat empty output as results or label output from another model as Argon. If Gemini CLI reports an untrusted workspace, review and trust this project explicitly. Do not add `--skip-trust` or change global trust settings automatically. Do not use the current third-party `gemini-mcp-tool` for this project-selected model: it can ignore the model or silently retry with Flash.
 
-If both MCP and CLI are unavailable, skip this source gracefully and continue with the remaining requested sources.
+If Gemini CLI is unavailable, skip this source gracefully and continue with the remaining requested sources.
 
 **Why use Gemini?** Gemini provides AI-driven discovery that goes beyond keyword matching — it decomposes topics, explores naming variants, and surfaces papers that traditional API-based searches may miss. It fills a different retrieval niche from structured database queries.
 
